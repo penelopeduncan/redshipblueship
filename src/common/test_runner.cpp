@@ -1401,6 +1401,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // (mm-warp-drive-seam, ROM-free, generation-free). Directly after the file above:
 // it reuses that file's source readers. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_warp_drive.c"
+// #1587 stage T: the Sun's Song's own "You played" text in Majora's Mask
+// (mm-sun-song-played-text, ROM-free, generation-free). After
+// test_mm_warp_song_play.c: it reuses that file's source readers. FILE SCOPE
+// (compiled as C++).
+#include "tests/test_mm_suns_song_played_text.c"
 // #1169 lane XW9: the travel facts' game-side locks: OoT's six warp-song root
 // exits, its Soaring fact and XW7's destination rule (oot-warp-travel-edges,
 // ROM-free, generation-free); MM's half (mm-warp-travel-edges) is declared with its
@@ -9238,6 +9243,16 @@ static TestResult Test_MMWarpSongDeparture(void) {
     }
     return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1587 T: the same bring-up as mm-warp-song-play; MM's half swaps in a stand-in
+// play state and message table and reads no CVar.
+static TestResult Test_MMSunSongPlayedText(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MMSunsSongPlayedText_Run();
+}
 // #1169 XW13: no bring-up: the row reads no CVar and no play state.
 static TestResult Test_MMWarpDriveSeam(void) {
     return MMWarpDriveSeam_Run();
@@ -12552,6 +12567,12 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1587 stage T: ROM-free and generation-free; the wrapper brings up the CVar store.
+    { "mm-sun-song-played-text",
+      "Playing the Sun's Song in any MM file shows OoTMM's \"You played the Sun's Song!\" (the name in yellow) in "
+      "0x1B78's box, not MM's empty 0x1B7D; every other song keeps its text, and z_message.c takes the Sun's Song "
+      "after the warp songs and before the plain arm (#1587)",
+      Test_MMSunSongPlayedText },
     // #1169 XW13: ROM-free and generation-free.
     { "mm-warp-drive-seam",
       "MM's test input seam ORs a latch into controller 1 once and clears it, refuses outside an integration run and "

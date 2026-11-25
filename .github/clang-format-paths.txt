@@ -356,6 +356,7 @@ games/mm/2s2h/Enhancements/Restorations/OcarinaDive.cpp
 games/mm/2s2h/mm_ocarina_dive_test.cpp
 games/mm/2s2h/mm_warp_travel_test.cpp
 games/mm/2s2h/mm_warp_song_play_test.cpp
+games/mm/2s2h/mm_suns_song_played_text_test.cpp
 games/oot/soh/oot_map_compass_colour_test.cpp
 games/mm/2s2h/mm_int_warp_song_drive.cpp
 games/mm/2s2h/mm_int_shuffle_ocarina_drive.cpp

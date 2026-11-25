@@ -4246,6 +4246,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
     redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
     redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # #1587 stage T: playing the Sun's Song in any MM file shows OoTMM's "You played
+    # the Sun's Song!" (the name in yellow) in 0x1B78's box, not MM's empty 0x1B7D:
+    # the pure helpers, MM's helpers over a stand-in play state and message table
+    # (every other song keeps 0x1B72 + song), and the z_message.c branch's place by
+    # a function-scoped anchor. ROM-free, generating nothing, the CVar store brought
+    # up. src/common/tests/test_mm_suns_song_played_text.c,
+    # games/mm/2s2h/mm_suns_song_played_text_test.cpp.
+    redship_add_test(NAME MMSunSongPlayedText COMMAND redship --test mm-sun-song-played-text)
     # #1169 XW13: the pure half IntMMWarpSongMinuet stands on (MM's test input seam
     # Combo_TestPad_Apply, the Minuet schedule, the arm proofs, the expected OoT
     # arrival), the setter's refusal outside an integration run, and the seam's
