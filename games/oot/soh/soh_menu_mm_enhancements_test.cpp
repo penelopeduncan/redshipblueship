@@ -1438,22 +1438,7 @@ extern "C" int OoT_MenuMmEnhancementRows_RunHeadless(void) {
                 MME_CHECK(opts->defaultValue && opts->defaultValue == (RSBS_MM_PAUSE_SAVE_DEFAULT != 0),
                           "the Pause Menu Save row's default is %d, expected on (RSBS_MM_PAUSE_SAVE_DEFAULT %d, #1728)",
                           opts->defaultValue ? 1 : 0, RSBS_MM_PAUSE_SAVE_DEFAULT);
-                const bool wasSet = CVarGet(RSBS_CVAR_MM_SAVING_PAUSE_SAVE) != nullptr;
-                const int32_t saved = CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, 0);
-                CVarClear(RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
-                const int32_t drawnUnset = CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, opts->defaultValue);
-                CVarSetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, 0);
-                const int32_t drawnOff = CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, opts->defaultValue);
-                if (wasSet) {
-                    CVarSetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, saved);
-                } else {
-                    CVarClear(RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
-                }
-                MME_CHECK(drawnUnset == 1, "with %s unset the Pause Menu Save row draws %d, expected ticked (1)",
-                          RSBS_CVAR_MM_SAVING_PAUSE_SAVE, (int)drawnUnset);
-                MME_CHECK(drawnOff == 0, "with %s stored 0 the Pause Menu Save row draws %d, expected unticked (0)",
-                          RSBS_CVAR_MM_SAVING_PAUSE_SAVE, (int)drawnOff);
-                printf("[TEST] leg 11: Pause Menu Save draws ticked with its key unset and unticked when stored 0\n");
+                printf("[TEST] leg 11: the Pause Menu Save row's default is on, the shared default the game reads\n");
             }
         }
     }

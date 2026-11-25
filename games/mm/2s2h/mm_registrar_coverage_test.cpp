@@ -2653,6 +2653,7 @@ int RunPauseSavePresetRedriveLeg() {
     // (a) What a SoH preset does to this key (it clears or replaces the whole gEnhancements block, then runs
     // ShipInit::InitAll, which the MM bridge does not forward), without wiping the block for the rest of the process.
     // The gates froze off at the stored 0, so the key reads on and nothing is armed: the staleness the re-drive fixes.
+    // The count check below is a precondition for (b), not a regression lock: CVarClear runs no registrar.
     CVarClear(kPauseSaveCVar);
     RC_ASSERT(SavingEnhancements_PauseSaveOn() == 1, 28,
               "(a) after the key was cleared, SavingEnhancements_PauseSaveOn() is not 1");
