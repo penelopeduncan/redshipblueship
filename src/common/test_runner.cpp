@@ -7291,16 +7291,22 @@ static TestResult Test_MenuComboSection(void) {
 
 // Backport packet #1733 (menu robustness): ExcludedLocations round-trip, MQ Dungeons
 // visibility under Selection Only / All, Audio API backend filtering, slider label
-// suffix stripping. ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
-extern "C" int OoT_MenuRobustness_RunHeadless(void);
+// suffix stripping, checkbox label wrapping past a hidden ID suffix (its call sites read
+// from source). ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
+extern "C" int OoT_MenuRobustness_RunHeadless(const char* sourceDir);
 
 static TestResult Test_OoTMenuRobustness(void) {
+#ifndef RSBS_SOURCE_DIR
+    printf("[TEST] FAIL (oot-menu-robustness): RSBS_SOURCE_DIR is undefined\n");
+    return TEST_FAIL;
+#else
     auto ctx = CreateHarnessStyleContext();
     if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
         printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
         return TEST_FAIL;
     }
-    return OoT_MenuRobustness_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+    return OoT_MenuRobustness_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
+#endif
 }
 
 // games/oot/soh/soh_presets_folder_test.cpp (#1210): a non-JSON file in the
@@ -11861,10 +11867,10 @@ const TestDescriptor gTests[] = {
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
     // #1733: ROM-free, display-free menu robustness checks (ExcludedLocations
     // round-trip, MQ location visibility, Audio API backend filtering, slider
-    // label suffix stripping).
+    // label suffix stripping, checkbox label wrapping past a hidden ID suffix).
     { "oot-menu-robustness",
-      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, and slider label "
-      "suffix stripping (#1733)",
+      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, slider label "
+      "suffix stripping, and checkbox labels wrapped without their hidden ID suffix (#1733)",
       Test_OoTMenuRobustness },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },

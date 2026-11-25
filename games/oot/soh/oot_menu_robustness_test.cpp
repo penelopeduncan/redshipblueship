@@ -13,11 +13,17 @@
  *   (c) BuildAvailableAudioBackendsMap filters offered Audio API entries strictly to
  *       the platform's available backend vector (no WASAPI when only SDL/NUL exist).
  *   (d) UIWidgets::GetVisibleLabel strips `#` / `##` ImGui ID suffixes for sliders.
+ *   (e) UIWidgets::WrappedLabel wraps a checkbox label's visible text only: a hidden
+ *       `##` ID suffix no longer counts toward the line length, and reaches ImGui intact.
+ *   (f) From source (RSBS_SOURCE_DIR): Menu::MenuDrawItem's two checkbox cases draw
+ *       their label through WrappedLabel, not WrappedText.
  */
 
 #include <cstdint>
 #include <cstdio>
 #include <exception>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 #include <string>
@@ -53,9 +59,11 @@ std::map<Ship::AudioBackend, const char*>
 BuildAvailableAudioBackendsMap(const std::vector<Ship::AudioBackend>& availableBackends);
 } // namespace Ship
 
-// UIWidgets.cpp: slider label suffix stripper.
+// UIWidgets.cpp: slider label suffix stripper, and the checkbox label wrapper (UIWidgets.hpp).
 namespace UIWidgets {
 std::string GetVisibleLabel(const char* label);
+std::string WrappedText(const char* text, unsigned int charactersPerLine);
+std::string WrappedLabel(const char* label, unsigned int charactersPerLine);
 } // namespace UIWidgets
 
 namespace {
@@ -291,14 +299,135 @@ void CheckSliderVisibleLabels() {
     MR_CHECK(UIWidgets::GetVisibleLabel(nullptr) == "", "nullptr label returns empty string safely");
 }
 
+void CheckCheckboxLabelWrap() {
+    printf("[TEST] oot-menu-robustness: leg (e) UIWidgets::WrappedLabel ignores a hidden ID suffix\n");
+
+    // Menu::DrawElement draws a page's widgets at 90 / columnCount characters per line.
+    constexpr unsigned int kMrThreeColumnWidth = 90 / 3;
+
+    // Premise: WrappedText counts the hidden suffix, so without WrappedLabel this name wraps early.
+    MR_CHECK(UIWidgets::WrappedText("Shuffle Master Sword##Randomizer", kMrThreeColumnWidth) ==
+                 "Shuffle Master\nSword##Randomizer",
+             "premise: WrappedText counts the ##Randomizer suffix toward the line length");
+
+    // Real checkbox names (Randomizer options carry ##Randomizer since #1768; Enhancements and
+    // Minigames rows carry their own suffix): each wraps as its visible name alone does.
+    struct MrLabelCase {
+        const char* name;
+        const char* suffix;
+    };
+    const MrLabelCase cases[] = {
+        { "Shuffle Master Sword", "##Randomizer" },    { "Shuffle Kokiri Sword", "##Randomizer" },
+        { "Shuffle Deku Stick Bag", "##Randomizer" },  { "Shuffle Gerudo Membership Card", "##Randomizer" },
+        { "All Locations Reachable", "##Randomizer" }, { "Time Travel Requires Master Sword", "##Randomizer" },
+        { "Skip Child Stealth", "##Enhancement" },     { "Blue Fire Arrows", "##Enhancement" },
+        { "Sunlight Arrows", "##Enhancement" },        { "Unlimited Playback Time", "##LostWoods" },
+    };
+    for (const MrLabelCase& c : cases) {
+        const std::string full = std::string(c.name) + c.suffix;
+        const std::string wrapped = UIWidgets::WrappedLabel(full.c_str(), kMrThreeColumnWidth);
+        const std::string expected = UIWidgets::WrappedText(c.name, kMrThreeColumnWidth) + c.suffix;
+        if (wrapped != expected) {
+            printf("[TEST] oot-menu-robustness: \"%s\" wrapped as \"%s\"\n", full.c_str(), wrapped.c_str());
+        }
+        MR_CHECK(wrapped == expected, "a suffixed checkbox label must wrap exactly as its visible name alone");
+        const size_t idAt = wrapped.find("##");
+        MR_CHECK(idAt != std::string::npos && wrapped.substr(idAt) == c.suffix,
+                 "the hidden ID suffix must reach ImGui unchanged");
+        MR_CHECK(UIWidgets::WrappedLabel(c.name, kMrThreeColumnWidth) ==
+                     UIWidgets::WrappedText(c.name, kMrThreeColumnWidth),
+                 "a label without ## must come out exactly as WrappedText gives it");
+    }
+
+    // Hand-walked results at 30 characters per line.
+    MR_CHECK(UIWidgets::WrappedLabel("Shuffle Master Sword##Randomizer", kMrThreeColumnWidth) ==
+                 "Shuffle Master Sword##Randomizer",
+             "Shuffle Master Sword stays on one line");
+    MR_CHECK(UIWidgets::WrappedLabel("Skip Child Stealth##Enhancement", kMrThreeColumnWidth) ==
+                 "Skip Child Stealth##Enhancement",
+             "Skip Child Stealth stays on one line");
+    MR_CHECK(UIWidgets::WrappedLabel("Time Travel Requires Master Sword##Randomizer", kMrThreeColumnWidth) ==
+                 "Time Travel Requires Master\nSword##Randomizer",
+             "a long name still wraps at the same space with its suffix");
+    MR_CHECK(UIWidgets::WrappedLabel("Time Travel Requires Master Sword", kMrThreeColumnWidth) ==
+                 "Time Travel Requires Master\nSword",
+             "a long name without a suffix wraps as WrappedText wraps it");
+    // A single '#' is drawn by ImGui, so it stays in the visible part and counts.
+    MR_CHECK(UIWidgets::WrappedLabel("Shuffle Master Sword #1 Of Many##X", kMrThreeColumnWidth) ==
+                 "Shuffle Master Sword #1 Of\nMany##X",
+             "a single # is visible text and counts toward the line length");
+    MR_CHECK(UIWidgets::WrappedLabel("Shuffle Master Sword###Id", kMrThreeColumnWidth) == "Shuffle Master Sword###Id",
+             "a ### suffix is split at its first ## and kept whole");
+    MR_CHECK(UIWidgets::WrappedLabel("##Hidden label whose id is longer than one line", kMrThreeColumnWidth) ==
+                 "##Hidden label whose id is longer than one line",
+             "a label that is all ID is never wrapped");
+    MR_CHECK(UIWidgets::WrappedLabel(nullptr, kMrThreeColumnWidth).empty(), "nullptr label returns empty string");
+}
+
+std::string MrReadSource(const char* sourceDir, const char* relPath) {
+    std::ifstream in(std::string(sourceDir) + "/" + relPath, std::ios::binary);
+    if (!in) {
+        return std::string();
+    }
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // CRLF checkouts read as LF so the needles below stay one spelling.
+    std::string normalized;
+    normalized.reserve(text.size());
+    for (const char c : text) {
+        if (c != '\r') {
+            normalized += c;
+        }
+    }
+    return normalized;
+}
+
+// The text from the one occurrence of `start` in `src` to the first `end` after it.
+// Empty when `start` is missing or not unique, or `end` does not follow it.
+std::string MrSliceBetween(const std::string& src, const char* start, const char* end) {
+    const size_t at = src.find(start);
+    if (at == std::string::npos || src.find(start, at + 1) != std::string::npos) {
+        return std::string();
+    }
+    const size_t close = src.find(end, at);
+    if (close == std::string::npos) {
+        return std::string();
+    }
+    return src.substr(at, close - at);
+}
+
+void CheckCheckboxLabelCallSites(const char* sourceDir) {
+    printf("[TEST] oot-menu-robustness: leg (f) the checkbox cases draw through WrappedLabel (source)\n");
+    if (sourceDir == nullptr || sourceDir[0] == '\0') {
+        MR_CHECK(false, "the source directory was not passed in");
+        return;
+    }
+    const std::string menu = MrReadSource(sourceDir, "games/oot/soh/SohGui/Menu.cpp");
+    MR_CHECK(!menu.empty(), "games/oot/soh/SohGui/Menu.cpp must be readable under RSBS_SOURCE_DIR");
+    const std::string drawItem = MrSliceBetween(menu, "\nvoid Menu::MenuDrawItem(", "\n}\n");
+    MR_CHECK(!drawItem.empty(), "Menu::MenuDrawItem must be found once in Menu.cpp");
+    const std::string checkbox = MrSliceBetween(drawItem, "case WIDGET_CHECKBOX: {", "} break;");
+    const std::string cvarCheckbox = MrSliceBetween(drawItem, "case WIDGET_CVAR_CHECKBOX: {", "} break;");
+    MR_CHECK(
+        checkbox.find("UIWidgets::Checkbox(UIWidgets::WrappedLabel(widget.name.c_str(), width).c_str(), pointer,") !=
+            std::string::npos,
+        "WIDGET_CHECKBOX must draw its label through UIWidgets::WrappedLabel");
+    MR_CHECK(cvarCheckbox.find("UIWidgets::CVarCheckbox(UIWidgets::WrappedLabel(widget.name.c_str(), width).c_str(), "
+                               "widget.cVar,") != std::string::npos,
+             "WIDGET_CVAR_CHECKBOX must draw its label through UIWidgets::WrappedLabel");
+    MR_CHECK(!drawItem.empty() && drawItem.find("WrappedText(widget.name") == std::string::npos,
+             "no widget name may reach WrappedText in Menu::MenuDrawItem");
+}
+
 } // namespace
 
-extern "C" int OoT_MenuRobustness_RunHeadless(void) {
+extern "C" int OoT_MenuRobustness_RunHeadless(const char* sourceDir) {
     sFailures = 0;
     CheckExcludedLocationsRoundTrip();
     CheckMQLocationsVisibility();
     CheckAudioBackendFiltering();
     CheckSliderVisibleLabels();
+    CheckCheckboxLabelWrap();
+    CheckCheckboxLabelCallSites(sourceDir);
     printf("[TEST] oot-menu-robustness: completed with %d failure(s)\n", sFailures);
     return sFailures == 0 ? 0 : 1;
 }
