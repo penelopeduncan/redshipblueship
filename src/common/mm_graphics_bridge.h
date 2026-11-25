@@ -15,11 +15,12 @@
  * 0 and the setters do nothing.
  *
  * THE AUTHENTIC PATCHES. MM applies its display-list patches once, in its asset phase (MM_Rando_InitAssets,
- * GameExports_SingleExe.cpp), and three keys choose what they patch: Fix Scene Geometry Seams, Disable Scene Geometry
- * Distance Check and SoH's shared Fix Out of Bounds Textures. 2Ship's menu reapplied them on change; here a change
- * reapplies them through MM_GfxPatches_Reapply, and only under MM's resource cache owner (#1000): at once while MM
- * runs, otherwise at MM's next resume (MM_GfxPatches_ApplyPending). Before MM's asset phase has run there is nothing to
- * reapply: the phase reads the keys itself.
+ * GameExports_SingleExe.cpp), and four keys choose what they patch: Fix Scene Geometry Seams, Disable Scene Geometry
+ * Distance Check, SoH's shared Fix Out of Bounds Textures and Fix Circle Shadow Streaks (which has no row; a preset or
+ * a dropped config file reaches it, #1811). 2Ship's menu reapplied them on change; here a change reapplies them through
+ * MM_GfxPatches_Reapply, and only under MM's resource cache owner (#1000): at once while MM runs, otherwise at MM's
+ * next resume (MM_GfxPatches_ApplyPending). Before MM's asset phase has run there is nothing to reapply: the phase
+ * reads the keys itself.
  */
 
 #ifndef RSBS_COMMON_MM_GRAPHICS_BRIDGE_H
@@ -41,9 +42,9 @@ int MM_MotionBlur_GetDynamicAlpha(void);
 void MM_MotionBlur_SetDynamicAlpha(int alpha);
 
 /**
- * Reapply MM's key-chosen authentic patches (geometry seams, geometry distance check, out-of-bounds textures) after one
- * of their keys changed. Returns 1 when it reapplied them now (MM is running), 0 when it deferred them to MM's next
- * resume or when MM's asset phase has not run yet (which then reads the keys itself).
+ * Reapply MM's key-chosen authentic patches (geometry seams, geometry distance check, out-of-bounds textures, circle
+ * shadow streaks) after one of their keys changed. Returns 1 when it reapplied them now (MM is running), 0 when it
+ * deferred them to MM's next resume or when MM's asset phase has not run yet (which then reads the keys itself).
  */
 int MM_GfxPatches_Reapply(void);
 /** Marks MM's asset phase as having applied the patches (GameExports_SingleExe.cpp, right after it does). */

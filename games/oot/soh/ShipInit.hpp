@@ -29,6 +29,30 @@ struct ShipInitEntry {
  * policy (which paths forward, and why `"*"` / `"IS_RANDO"` do not).
  */
 extern "C" void MM_ShipInit_OnCVarChanged(const char* path);
+
+/**
+ * #1811: a bulk CVar write (a preset, a dropped config file) ends in `InitAll()`, whose `"*"` the bridge does not
+ * forward, so MM's registrars would keep the values they read last. Begin snapshots the CVars MM's registrars are keyed
+ * on; End re-drives the ones that changed, as one click per changed row would. Both only read CVars. Defined in
+ * games/mm/2s2h/ShipInitBridge_SingleExe.cpp, beside the forwarding policy.
+ */
+extern "C" void MM_ShipInit_BeginBulkCVarWrite(void);
+extern "C" int MM_ShipInit_EndBulkCVarWrite(void);
+
+/**
+ * #1811: opens a bulk CVar write for MM on construction and closes it on destruction, so an exception still closes
+ * it. Declare it before a bulk writer's first CVar write.
+ */
+struct ShipInitMmBulkCVarWrite {
+    ShipInitMmBulkCVarWrite() {
+        MM_ShipInit_BeginBulkCVarWrite();
+    }
+    ~ShipInitMmBulkCVarWrite() {
+        (void)MM_ShipInit_EndBulkCVarWrite();
+    }
+    ShipInitMmBulkCVarWrite(const ShipInitMmBulkCVarWrite&) = delete;
+    ShipInitMmBulkCVarWrite& operator=(const ShipInitMmBulkCVarWrite&) = delete;
+};
 #endif
 
 struct ShipInit {
