@@ -59,6 +59,7 @@ extern "C" {
 #include <message_data_static.h>
 // Defined in z_actor.c and declared only there (as in mm_actor_overlay_entry_guard_test.cpp).
 Actor* MM_Actor_Delete(ActorContext* actorCtx, Actor* actor, PlayState* play);
+void AudioSfx_Reset(void);
 extern Input* sPlayerControlInput;
 extern void MM_Player_Action_Idle(Player* player, PlayState* play);
 extern void Player_Action_13(Player* player, PlayState* play);
@@ -280,6 +281,9 @@ int RunLegs(ScopedStateRestore& guard) {
     play->setupPathList = NULL;
     GameInteractor_ExecuteOnActorInit(&type2Owl.actor);
 
+    // Initialize MM sound-effect bank linked lists (gSfxBanks) before spawning/deleting owls so
+    // MM_Actor_Delete -> AudioSfx_StopByPosAndBankImpl sees sentinel 0xFF instead of zero-initialized 0.
+    AudioSfx_Reset();
     memset(sTestArenaBuffer, 0, sizeof(sTestArenaBuffer));
     MM_ZeldaArena_Init(sTestArenaBuffer, sizeof(sTestArenaBuffer));
     guard.arenaInitialized = true;
