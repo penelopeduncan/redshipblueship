@@ -1856,6 +1856,10 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
             RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT,  RR_SPIRIT_TEMPLE_INNER_LEFT_HAND, RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH,
             RR_SPIRIT_TEMPLE_MQ_BIG_BLOCKS_DOOR,
         };
+        // A probe counts toward the non-vacuity guard only on a row whose reverseAccess fails with no items
+        // (state 0, which runs first): a row whose reverseAccess holds empty-handed, such as MQ Statue Room's
+        // `return true`, would make the guard pass whatever the other rows did.
+        std::map<RandomizerRegion, bool> reverseHoldsEmptyHanded;
         int adultReaches = 0;
         int broken = 0;
         for (int state = 0; state < 6; state++) {
@@ -1903,7 +1907,10 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
                 BhlAs(true, entry.first);
                 const bool adultAccess = entry.second.adultAccess();
                 const bool reverseAccess = entry.second.reverseAccess();
-                if (adultAccess) {
+                if (state == 0) {
+                    reverseHoldsEmptyHanded[entry.first] = reverseAccess;
+                }
+                if (adultAccess && !reverseHoldsEmptyHanded[entry.first]) {
                     adultReaches++;
                 }
                 if (adultAccess && !reverseAccess) {
@@ -1917,10 +1924,11 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
         }
         logic->CurrentRegionKey = RR_NONE;
         if (adultReaches == 0) {
-            GateFail("EC32j no row's adultAccess held in any item state, so the tripwire tested nothing");
+            GateFail("EC32j no row whose reverseAccess fails empty-handed had adultAccess true in any item "
+                     "state, so the tripwire tested nothing");
         } else if (broken == 0) {
             printf("[TEST]   ok: EC32j adultAccess implies reverseAccess as the adult on every non-exempt row "
-                   "(%d probes with adultAccess true)\n",
+                   "(%d probes with adultAccess true on a row whose reverseAccess is not trivial)\n",
                    adultReaches);
         }
     }

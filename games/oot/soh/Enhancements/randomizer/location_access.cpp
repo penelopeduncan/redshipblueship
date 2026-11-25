@@ -852,7 +852,8 @@ bool SpiritShared(RandomizerRegion region, ConditionFn condition, bool anyAge, R
             // term was always true; the dead term is dropped and the behaviour kept. Calling it would ask 7 keys at
             // MQ Under Like Like and MQ Sun on Floor (StatueRoomMQKeyLogic as the adult), which the door count and
             // OoTMM (spirit_temple_mq.yml: "only 6 keys is safe") show is too strict; on every other row a child
-            // cannot be there or the adult's adultAccess already implies its reverseAccess.
+            // cannot be there, or the adult's adultAccess already implies its reverseAccess, or (MQ Big Blocks Door)
+            // the only caller's condition is child-only and so fails as the adult.
             result = (curRegionData.adultAccess() && condition()) ||
                      (otherRegion != RR_NONE &&
                       (Region::spiritLogicData[otherRegion].adultAccess() &&
