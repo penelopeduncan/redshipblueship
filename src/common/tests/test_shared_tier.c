@@ -701,11 +701,13 @@ TestResult Test_SharedTierPickup(void) {
     }
     MM_SharedTierTest_SetWallet(3, 900); // 100 earned in Termina
     MM_HarvestSharedResources();         // MM departs
-    // OoT's next arrival restores the save OoT left (the Tycoon's Wallet holding
-    // 800). Re-arm it: MM_SharedTierTest_ArmLive above wiped the save buffer both
-    // games share, so without this OoT's apply and reads below would run on MM's
-    // bytes and pass only because the apply writes the wiped fields back.
-    OoT_SharedWalletTest_ArmLive(3, 800, 1);
+    // Re-arm OoT before its arrival: MM_SharedTierTest_ArmLive above wiped the
+    // save buffer both games share, so without this OoT's apply and reads below
+    // would run on MM's bytes and pass only because the apply writes the wiped
+    // fields back. Arm it BELOW the pool, a full Giant's Wallet (tier 2, 500), so
+    // both halves of the check must come from the apply: without the tier raise
+    // OoT stays at tier 2 and its 500 clamp, without the rupee write it keeps 500.
+    OoT_SharedWalletTest_ArmLive(2, 500, 1);
     OoT_ApplySharedResources(); // OoT's next arrival
     {
         const int rupees = OoT_SharedWalletTest_Rupees();
