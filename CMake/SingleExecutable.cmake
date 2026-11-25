@@ -1983,8 +1983,9 @@ if(BUILD_TESTING)
     redship_add_test(NAME SetMenuCount COMMAND redship --test setmenu-count)
     # Backport packet #1733 (menu robustness): ExcludedLocations trailing-comma
     # round-trip, MQ Dungeons selection visibility, Audio API backend filtering,
-    # and slider label suffix stripping. Default redship tier;
-    # games/oot/soh/oot_menu_robustness_test.cpp.
+    # slider label suffix stripping, and checkbox labels wrapped without their
+    # hidden ID suffix (call sites read from source, RSBS_SOURCE_DIR). Default
+    # redship tier; games/oot/soh/oot_menu_robustness_test.cpp.
     redship_add_test(NAME OoTMenuRobustness COMMAND redship --test oot-menu-robustness)
     # #1210: SoH's LoadPresets (a boot-time RegisterMenuInitFunc) parsed every
     # entry of presets/ as JSON with no filter and no catch, so a stray
