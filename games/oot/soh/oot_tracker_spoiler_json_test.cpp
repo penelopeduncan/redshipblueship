@@ -112,9 +112,7 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
         bool threw = false;
         try {
             dungeons->ParseJson(emptyObj);
-        } catch (...) {
-            threw = true;
-        }
+        } catch (...) { threw = true; }
         TsjCheck("SJ-a1", !threw, "Dungeons::ParseJson on empty const json does not throw");
         TsjCheck("SJ-a2", !list[0]->IsMQ(), "Dungeons::ParseJson on empty object clears MQ flag");
 
@@ -123,9 +121,7 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
         threw = false;
         try {
             dungeons->ParseJson(mqDoc);
-        } catch (...) {
-            threw = true;
-        }
+        } catch (...) { threw = true; }
         TsjCheck("SJ-a3", !threw && list[0]->IsMQ(), "Dungeons::ParseJson with dungeon 0 name sets MQ");
 
         for (size_t i = 0; i < list.size(); ++i) {
@@ -152,9 +148,7 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
         bool threw = false;
         try {
             trials->ParseJson(emptyObj);
-        } catch (...) {
-            threw = true;
-        }
+        } catch (...) { threw = true; }
         bool allSkipped = true;
         for (const Rando::TrialInfo* trial : list) {
             if (!trial->IsSkipped()) {
@@ -176,7 +170,7 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
 
     // (c) Settings: seed/finalSeed succeed with missing optional sections; missing "seed" throws.
     {
-        Rando::Settings* settings = Rando::Settings::GetInstance();
+        const std::shared_ptr<Rando::Settings> settings = Rando::Settings::GetInstance();
         settings->AssignContext(randoCtx);
         const std::string savedSeedString = randoCtx->GetSeedString();
         const uint32_t savedSeed = randoCtx->GetSeed();
@@ -185,9 +179,7 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
         bool threw = false;
         try {
             settings->ParseJson(seedDoc);
-        } catch (...) {
-            threw = true;
-        }
+        } catch (...) { threw = true; }
         TsjCheck("SJ-c1", !threw, "Settings::ParseJson with seed and finalSeed only does not throw");
         TsjCheck("SJ-c2", randoCtx->GetSeedString() == "rsbs-1748" && randoCtx->GetSeed() == 7,
                  "Settings::ParseJson sets seed string and finalSeed");
@@ -196,9 +188,7 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
         bool missingThrew = false;
         try {
             settings->ParseJson(missingSeedDoc);
-        } catch (...) {
-            missingThrew = true;
-        }
+        } catch (...) { missingThrew = true; }
         TsjCheck("SJ-c3", missingThrew, "Settings::ParseJson without \"seed\" throws");
 
         randoCtx->SetSeedString(savedSeedString);
@@ -210,25 +200,19 @@ extern "C" int OoT_SpoilerJsonSections_RunHeadless(void) {
         bool locThrew = false;
         try {
             randoCtx->ParseItemLocationsJson(emptyObj);
-        } catch (...) {
-            locThrew = true;
-        }
+        } catch (...) { locThrew = true; }
         TsjCheck("SJ-d1", !locThrew, "Context::ParseItemLocationsJson on empty const json does not throw");
 
         bool tricksThrew = false;
         try {
             randoCtx->ParseTricksJson(emptyObj);
-        } catch (...) {
-            tricksThrew = true;
-        }
+        } catch (...) { tricksThrew = true; }
         TsjCheck("SJ-d2", !tricksThrew, "Context::ParseTricksJson on empty const json does not throw");
 
         bool hashThrew = false;
         try {
             randoCtx->ParseHashIconIndexesJson(emptyObj);
-        } catch (...) {
-            hashThrew = true;
-        }
+        } catch (...) { hashThrew = true; }
         TsjCheck("SJ-d3", !hashThrew, "Context::ParseHashIconIndexesJson on empty const json does not throw");
     }
 

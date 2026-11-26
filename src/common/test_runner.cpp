@@ -13455,8 +13455,8 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 ||
                 strcmp(gTests[i].name, "oot-spoiler-json-sections") == 0 ||
                 strcmp(gTests[i].name, "oot-item-tracker-gated-sections") == 0 ||
-                strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
-                strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "mm-logic-gates") == 0 || strcmp(gTests[i].name, "mm-time-edges") == 0 ||
+                strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "mm-fortress-evade-gerudo") == 0 ||
                 strcmp(gTests[i].name, "oot-masks-mm-pool") == 0 ||
                 // #1569: each CTest row is its own process, so the first thing it reads is the static-init state;
