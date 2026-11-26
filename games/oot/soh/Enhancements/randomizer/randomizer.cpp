@@ -4606,8 +4606,9 @@ void GenerateRandomizerImgui(std::string seed = "") {
     // already persisted as 1 by the SaveConsoleVariablesNextFrame above, leaving the
     // menu and the file-select screen believing a generation was still in flight and
     // the thread never joinable. The whole body has to be covered, not just the
-    // GenerateRando call: the std::stoi calls below parse persisted CVar strings and
-    // throw std::invalid_argument on any token that is not a number. A failed attempt
+    // GenerateRando call: the settings application can throw too. (The exclude and
+    // trick lists are parsed without throwing in the single-exe build since #1819:
+    // Rando_ReadMenuExcludesAndTricks skips malformed fields.) A failed attempt
     // must clear the flag and hand the thread back exactly like a successful one, so
     // the fall-through below runs in every case.
     try {
