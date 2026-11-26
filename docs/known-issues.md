@@ -74,6 +74,12 @@ Everything below passed the automated gates. None of it has been checked by a pe
   starts in normal play (not one that holds the Ocarina of Time without the Song of Time), and do not pause or talk to
   anyone. "Game autosaved" should not appear in the first few seconds (before the fix it came about 3 seconds after the
   load); the first one should come about 3 minutes later.
+- Fix Out of Bounds Textures after a preset, and Debug Mode off (issue #1817). Tests count Majora's Mask's hook handlers
+  and drive the bulk-change bookkeeping with the texture patches skipped. No run applies a preset, drops a config file,
+  clicks either row or looks at a texture. To try it: load an Ocarina of Time file as child Link with Fix Out of Bounds
+  Textures off, look at the held Deku Stick, then press Apply on a curated Enhancements preset (Settings > Presets);
+  this replaces all your enhancement, cheat and randomizer-enhancement settings. The stick should then look as it does
+  after you tick the row by hand, without a restart. How easy the difference is to see is not known.
 
 ### New in v0.5.2-alpha
 
