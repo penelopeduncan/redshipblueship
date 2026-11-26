@@ -22,6 +22,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "context.h" // src/common: Context_GetCurrentGame (#1040 R1)
 #include "CosmeticsEditorMm.h" // W6-COS-A (#1239): Majora's Mask's rows
+#include "OwedGfxPatches.h"    // #1829: OoT_GfxPatches_ApplyOwed
 #endif
 
 extern "C" {
@@ -575,11 +576,13 @@ extern "C" void CosmeticsEditor_ReapplyDeferredGfxPatches(void) {
 
 int hue = 0;
 
-// Runs every frame to update rainbow hue, a potential future optimization is to only run this a once or twice a second
+// Runs every frame to update rainbow hue, a potential future optimization is to only run this once or twice a second
 // and increase the speed of the rainbow hue rotation.
 void CosmeticsUpdateTick() {
 #ifdef RSBS_SINGLE_EXECUTABLE
     CosmeticsEditor_ReapplyDeferredGfxPatches(); // #1040 R1: a pass owed while MM ran
+    OoT_AuthenticGfxPatches_ApplyOwed();         // #1817: Fix Out of Bounds Textures changed while MM ran
+    OoT_GfxPatches_ApplyOwed();                  // #1829: OoT gfx registrars changed while MM ran
 #endif
     int index = 0;
     float rainbowSpeed = CVarGetFloat(CVAR_COSMETIC("RainbowSpeed"), 0.6f);
@@ -1580,7 +1583,7 @@ void Table_InitHeader(bool has_header = true) {
     }
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding(); // This is to adjust Vertical pos of item in a cell to be normlized.
+    ImGui::AlignTextToFramePadding(); // This is to adjust Vertical pos of item in a cell to be normalized.
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() - 2);
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 60);
 }
@@ -2637,7 +2640,13 @@ void RegisterOnGameFrameUpdateHook() {
 void CosmeticsEditorWindow::InitElement() {
     Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
     ApplyOrResetCustomGfxPatches();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1829: no game is current yet at boot, and on an MM-first boot the cache owner is MM's, so the pass is owed and
+    // paid on OoT's first frame under OoT's owner.
+    (void)OoT_AuthenticGfxPatches_Reapply();
+#else
     ApplyAuthenticGfxPatches();
+#endif
 }
 
 void CosmeticsEditor_RandomizeAll() {

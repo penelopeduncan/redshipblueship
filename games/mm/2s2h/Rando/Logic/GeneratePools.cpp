@@ -60,7 +60,9 @@ static bool RsbsIsTingleMap(RandoItemId randoItemId) {
 // keeps both MM's shared Song of Soaring (Southern Swamp) and the three first-word
 // shared songs (Romani Ranch, Beneath the Graveyard, Clock Tower Roof) on their
 // vanilla checks instead of releasing them to the bag; the coordinator credits OoT
-// from each fixed host (MM_ComboLogic_FixedSharedSongHost).
+// from each fixed host (MM_ComboLogic_FixedSharedSongHost). #1587 stage B: the
+// shared Sun's Song and Saria's Song answer true too, but MM has no song check for
+// either, so this never sees them.
 static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
     if (!Combo_ForeignPairingActive()) {
         return false;
@@ -437,7 +439,9 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_SUN] == RO_GENERIC_YES) {
 #ifdef RSBS_SINGLE_EXECUTABLE
         // [RSBS #1587] Under the frozen Shared Sun's Song rule MM pools no copy of its
-        // own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h).
+        // own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h), or under
+        // Shuffle Songs Off it stays on OoT's default check with one fixed credit to MM
+        // (combo_single_bag.c, stage B).
         if (!Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SUN)) {
             itemPool.push_back(RI_SONG_SUN);
         }
@@ -454,7 +458,9 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_SARIA] == RO_GENERIC_YES) {
 #ifdef RSBS_SINGLE_EXECUTABLE
         // [RSBS #1587] Under the frozen Shared Saria's Song rule MM pools no copy of
-        // its own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h).
+        // its own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h), or
+        // under Shuffle Songs Off it stays on OoT's default check with one fixed credit to
+        // MM (combo_single_bag.c, stage B).
         if (!Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SARIAS)) {
             itemPool.push_back(RI_SONG_SARIA);
         }

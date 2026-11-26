@@ -49,11 +49,6 @@ Everything below passed the automated gates. None of it has been checked by a pe
   Set Number or Selection Only (Random is not tested), and how the excluded list is stored. No test draws the page,
   presses Exclude Visible or Include Visible, or generates a seed with a Master Quest check excluded under Selection
   Only. To try it: Randomizer > Locations, with MQ Dungeon Setting on Selection Only.
-- Some checkbox names break onto two lines (issue #1818). On menu pages with three columns, the checkbox of a randomizer
-  option whose name has about 19 to 30 characters now puts its last word on a second line, for example Shuffle Master
-  Sword and Shuffle Kokiri Sword on Randomizer > Shuffles. The enhancement Skip Child Stealth on Enhancements > Skips &
-  Speed-ups does the same. Other checkboxes are not affected, and the rows work as before. This is a side effect of the
-  search fix for rows with the same name.
 - Seven small Majora's Mask options (issue #1755): Picto Box on C-Up, Always Show Shrine of Truth Feathers, Dash After
   Roll, Always Find Rock Sirloin, Jumping Game Time Limit, Jumping Game Score and Win Jumping Game Early. Tests call
   each option's code with made-up game data. No run rolls and dashes, opens the Pictograph Box with C-Up, visits the
@@ -62,6 +57,36 @@ Everything below passed the automated gates. None of it has been checked by a pe
 - Ocarina of Time's minigame options after their move to hooks (issue #1753). Tests call the hooks with made-up game
   data; no run plays Bombchu Bowling, the Frogs' Ocarina Game or the Shooting Gallery, and nothing checks the removal of
   a cucco while Link stands in the Bombchu Bowling Alley.
+- A file written by this build is refused by `v0.5.3-alpha` and older (issue #1702). Files from `v0.5.1-alpha`,
+  `v0.5.2-alpha` and `v0.5.3-alpha` open here. But once this build saves one (autosaves and Majora's Mask saves
+  included), you cross between the games in it, or you quit to the title from Ocarina of Time's game-over screen, those
+  versions refuse it ("Refused: File made by another build"). Copy `Save/` first if you may go back. Tests load a
+  made-up older record; no test opens a real `v0.5.3-alpha` file.
+- Presets and dropped config files reaching Majora's Mask (issue #1811). Tests open the same scope that a preset or a
+  dropped config file opens, with option changes the test makes itself, and a source check confirms that both open it.
+  No run presses Apply or drops a file, and nobody has watched Majora's Mask follow a preset in a running game. To try
+  it: in a file that is not a randomizer file, with Fast Chests off, stand in Majora's Mask, press Apply on the preset
+  Enhancements - Curated Randomizer (Settings > Presets), and, without reloading the file or crossing, open a chest
+  holding an item you do not have yet. It should open at once, without the long opening.
+- Ocarina of Time's autosave timer restarting on a load (issue #1735). Tests call Autosave's load hook and read the
+  timer. No run loads a file from the file select and waits for an autosave. To try it: turn Autosave on and leave
+  Notification on Autosave on, wait more than 3 minutes after starting the program, then load an existing file that
+  starts in normal play (not one that holds the Ocarina of Time without the Song of Time), and do not pause or talk to
+  anyone. "Game autosaved" should not appear in the first few seconds (before the fix it came about 3 seconds after the
+  load); the first one should come about 3 minutes later.
+- Fix Out of Bounds Textures after a preset, and Debug Mode off (issue #1817). Tests count Majora's Mask's hook handlers
+  and drive the bulk-change bookkeeping with the texture patches skipped. No run applies a preset, drops a config file,
+  clicks either row or looks at a texture. To try it: load an Ocarina of Time file as child Link with Fix Out of Bounds
+  Textures off, look at the held Deku Stick, then press Apply on a curated Enhancements preset (Settings > Presets);
+  this replaces all your enhancement, cheat and randomizer-enhancement settings. The stick should then look as it does
+  after you tick the row by hand, without a restart. How easy the difference is to see is not known.
+- Ocarina of Time model options changed while Majora's Mask runs (issue #1829). Tests drive the bookkeeping only: four
+  options' patch code is skipped and Mirrored World's runs with no models loaded. No run clicks a row or applies a
+  preset; integration rows that start in Majora's Mask and switch to Ocarina of Time run the new code but check no
+  model. To try it: in Ocarina of Time, as child Link, set Mirrored World (Enhancements > Extra Modes) to Always and
+  enter any area, so the world is mirrored. Enter the Happy Mask Shop in the Market to go to Majora's Mask and set
+  Mirrored World to Disabled there; Majora's Mask unmirrors at once. Walk back into the Clock Tower: Ocarina of Time
+  should not be mirrored. Before the fix it stayed mirrored.
 
 ### New in v0.5.2-alpha
 

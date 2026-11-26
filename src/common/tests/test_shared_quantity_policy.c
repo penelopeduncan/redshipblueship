@@ -95,6 +95,7 @@ struct SqpHeartRow {
 void SqpClearSharedStore(void) {
     memset(gComboCtx.sharedResources, 0, sizeof(gComboCtx.sharedResources));
     memset(gComboCtx.sharedResourcesExt, 0, sizeof(gComboCtx.sharedResourcesExt));
+    memset(gComboCtx.sharedResourcesExt2, 0, sizeof(gComboCtx.sharedResourcesExt2)); // #1702 C7's third block
     Combo_ResetSharedResourceWatermarks();
 }
 
@@ -477,6 +478,16 @@ void SqpFreezeBags(bool stick, bool nut) {
     Combo_FreezeComboSettings(&rec);
 }
 
+/** #1702 C7: freeze a paired record whose only comboFlags bit is the reserved
+ *  Shared Bombchu Bag bit (0x80), which only a test can freeze before C8. */
+void SqpFreezeChuBag() {
+    SqpFreeze(false);
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    rec.comboFlags = (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG;
+    Combo_FreezeComboSettings(&rec);
+}
+
 /** Q7: puts the process's registered stand-ins back on every exit, so a leg may
  *  clear or replace them. */
 struct SqpStandInGuard {
@@ -602,6 +613,27 @@ TestResult Test_SharedQuantityPolicy(void) {
         SQP_ASSERT(Combo_SharedQuantityPolicyOf(RSBS_SHARED_RES_OCARINA_TIER, &p) &&
                        p.policy == RSBS_SHARED_QTY_KEEP_ALL,
                    "Q1: a record carrying the retired shared-ocarina bit keeps each game's own copies (#879)");
+        SqpFreeze(false);
+
+        // #1702 C7: the shared Bombchu Bag tier. P1 unarmed (every world before
+        // C8) keeps each game's copies untouched: catches the arming answering
+        // true (mutation 1). P2 armed, a TIER trim with ceilings 3 / 3: catches a
+        // wrong row. P3 the budget arithmetic with MM copies above 0, the only
+        // leg a wrong ceilingMM reaches through the budget (mutation 6: OoT 3 /
+        // MM 2 would read -1, kept whole); with MM at 0 the unequal-ceiling test
+        // never runs.
+        const uint8_t kChuBag = (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
+        SQP_ASSERT(Combo_SharedQuantityPolicyOf(kChuBag, &p) && p.policy == RSBS_SHARED_QTY_KEEP_ALL &&
+                       p.budget == RSBS_SHARED_QTY_BUDGET_NONE && p.ceilingOoT == 0u && p.ceilingMM == 0u &&
+                       Combo_SharedQuantityTierBudget(&p, 4, 0) == -1,
+                   "P1 (#1702 C7): an UNARMED Bombchu Bag tier keeps each game's own copies");
+        SqpFreezeChuBag();
+        SQP_ASSERT(Combo_SharedQuantityPolicyOf(kChuBag, &p) && p.policy == RSBS_SHARED_QTY_TRIM_TO_SHARED_MAX &&
+                       p.budget == RSBS_SHARED_QTY_BUDGET_TIER && p.fixedCap == 0u && p.ceilingOoT == 3u &&
+                       p.ceilingMM == 3u,
+                   "P2 (#1702 C7): the armed Bombchu Bag tier is a TIER trim with ceilings 3 / 3");
+        SQP_ASSERT(Combo_SharedQuantityTierBudget(&p, 3, 2) == 3 && Combo_SharedQuantityTierBudget(&p, 4, 0) == 4,
+                   "P3 (#1702 C7): OoT 3 / MM 2 keeps 3 and OoT 4 / MM 0 keeps 4");
         SqpFreeze(false);
     }
 

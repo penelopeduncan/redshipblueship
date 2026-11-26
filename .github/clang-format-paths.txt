@@ -149,6 +149,8 @@ games/oot/soh/Enhancements/controls/OcarinaNoteMappingCleanup.h
 games/oot/soh/Enhancements/cosmetics/CustomLogoTitle.cpp
 games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMm.cpp
 games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMm.h
+games/oot/soh/Enhancements/cosmetics/OwedGfxPatches.cpp
+games/oot/soh/Enhancements/cosmetics/OwedGfxPatches.h
 games/oot/soh/Enhancements/randomizer/ForeignItemsSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/ShopRestockSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/HintAreaOoT.cpp
@@ -175,6 +177,7 @@ games/oot/soh/oot_netplay_fixes_test.cpp
 games/oot/soh/oot_check_receive_effects_test.cpp
 games/oot/soh/oot_file_select_refusal_test.cpp
 games/oot/soh/oot_log_noise_test.cpp
+games/oot/soh/oot_autosave_load_clock_test.cpp
 games/oot/soh/oot_older_save_meta_test.cpp
 games/oot/soh/oot_file_select_identity_shot.cpp
 games/oot/soh/oot_combo_identity_display_test.cpp
@@ -202,6 +205,7 @@ games/oot/soh/oot_room_bg_cam_guard_test.cpp
 games/oot/soh/oot_minigame_options_test.cpp
 games/oot/soh/oot_xml_skeleton_empty_limb_test.cpp
 games/oot/soh/oot_custom_message_text_test.cpp
+games/oot/soh/oot_trick_text_1746_test.cpp
 games/oot/soh/oot_master_sword_respawn_test.cpp
 games/oot/soh/oot_menu_robustness_test.cpp
 games/oot/soh/oot_warp_arrival_test.cpp

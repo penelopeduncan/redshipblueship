@@ -442,7 +442,7 @@ void RegionTable_Init_DekuTree() {
         //Exits
         Entrance(RR_DEKU_TREE_MQ_BASEMENT_LEDGE,          []{return logic->CanUse(RG_CRAWL) && AnyAgeTime([]{return logic->HasFireSourceWithTorch() || logic->CanUse(RG_FAIRY_BOW);});}),
         Entrance(RR_DEKU_TREE_MQ_BASEMENT_SOUTHWEST_ROOM, []{return true;}),
-        //Using a bow to get past here as adult is a bit precise on standing position but simple, doing as as child requires a side-hop with the bow out to shoot through the torch and may be trick worthy
+        //Using a bow to get past here as adult is a bit precise on standing position but simple, doing so as child requires a side-hop with the bow out to shoot through the torch and may be trick worthy
         Entrance(RR_DEKU_TREE_MQ_BASEMENT_BACK_ROOM,      []{return AnyAgeTime([]{return logic->HasFireSourceWithTorch() || logic->CanUse(RG_FAIRY_BOW);});}),
     });
 

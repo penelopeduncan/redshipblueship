@@ -2726,6 +2726,13 @@ uint8_t OoTFillClassSharedKind(RandomizerGet rg) {
         // KEEP_ALL, so the pool and the bag do not move.
         case RG_KOKIRI_SWORD:
             return RSBS_SHARED_RES_KOKIRI_SWORD;
+        // [RSBS #1702 C7] So a pickup of it steps the shared Bombchu Bag tier,
+        // armed only by the frozen comboFlags 0x80 (nothing writes it before C8).
+        // OoT is the kind's only source and its class stays its own; unarmed the
+        // kind is KEEP_ALL and the pickup is not a credit, so the pool, the bag
+        // and every crossing stay as they are.
+        case RG_PROGRESSIVE_BOMBCHU_BAG:
+            return RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
         // #970: a bottle, whatever it holds. Ruto's Letter is not tagged: it is a
         // bottle in the inventory (the shared count sees its slot) but it is OoT's
         // quest item, and the Shared Bottles trim must never take it out of the
@@ -3155,7 +3162,9 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  * the songs are not shuffled): under Shuffle Songs Off NO shared song is held back
  * (Combo_SharedWarpSongFixedAtHome). OoT's six warp songs stay on their Sheik checks
  * and Epona's Song, Song of Storms, and Song of Time stay on Malon, Windmill, and
- * Ocarina of Time (while MM's vanilla checks keep their copies too); fill.cpp's
+ * Ocarina of Time (while MM's vanilla checks keep their copies too), and (#1587
+ * stage B) the shared Sun's Song and Saria's Song stay on Royal Family's Tomb and
+ * with Saria at Sacred Forest Meadow (MM has no default check for either); fill.cpp's
  * release leaves them there, Link's Pocket never sees them, and the songs family is
  * not armed for them; the coordinator credits the other game from each fixed host
  * (OoT_ComboLogic_FixedSharedSongHost, MM_ComboLogic_FixedSharedSongHost). The shared
@@ -3205,8 +3214,9 @@ extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg) {
 /**
  * #1169 XW15 / #1561: the OoT check that holds shared song @p rg as its FIXED content
  * under Shuffle Songs Off (Combo_SharedWarpSongFixedAtHome): the hidden song location
- * item_pool.cpp placed it on (its Sheik check, or Malon / Windmill / Ocarina of Time
- * for the three first-word shared songs). -1 in every other world, for an id with no
+ * item_pool.cpp placed it on (its Sheik check, Royal Family's Tomb / Saria's check
+ * for the Sun's Song / Saria's Song (#1587 stage B), or Malon / Windmill / Ocarina of
+ * Time for the three first-word shared songs). -1 in every other world, for an id with no
  * such check (the Song of Soaring (OoT), whose default check is Majora's Mask's), and
  * with no seed context. combo_single_bag.c names the answer as a fixed credit, so
  * Majora's Mask's logic holds the song once the check is reached.

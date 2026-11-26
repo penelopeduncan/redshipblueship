@@ -3393,6 +3393,12 @@ bool SoH_HandleConfigDrop(char* filePath) {
             return false;
         }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1811: the Init("*") below does not reach Majora's Mask's registrars (the MM bridge does not forward it).
+        // This scope re-drives every MM registrar whose CVar the dropped file changed when the handler returns or
+        // throws, as one click per changed row would. It reads the keys, never stores them.
+        ShipInitMmBulkCVarWrite mmBulkCVarWrite;
+#endif
         CVarClearBlock(CVAR_PREFIX_ENHANCEMENT);
         CVarClearBlock(CVAR_PREFIX_CHEAT);
         CVarClearBlock(CVAR_PREFIX_RANDOMIZER_SETTING);

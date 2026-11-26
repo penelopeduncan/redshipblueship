@@ -1,6 +1,9 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/ResourceManagerHelpers.h"
 #include "soh/ShipInit.hpp"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "soh/Enhancements/cosmetics/OwedGfxPatches.h" // #1829: OoT_GfxPatches_RunOrOwe
+#endif
 
 extern "C" {
 #include "align_asset_macro.h"
@@ -108,12 +111,20 @@ static void CheckTempleOfTime(int16_t sceneNum) {
     PatchToTMedallions();
 }
 
-static void RegisterToTMedallions() {
+static void ToTMedallions_Pass(bool /*owed*/) {
     if (CVAR_TOT_MEDALLION_COLORS_VALUE) {
         PatchToTMedallions();
     } else {
         ResetToTMedallions();
     }
+}
+
+static void RegisterToTMedallions() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    OoT_GfxPatches_RunOrOwe("ToTMedallions", ToTMedallions_Pass, true); // #1829: OoT's owner only; owed while MM runs
+#else
+    ToTMedallions_Pass(false);
+#endif
 
     COND_HOOK(OnItemReceive, CVAR_TOT_MEDALLION_COLORS_VALUE, [](GetItemEntry) {
         if (OoT_gPlayState) {

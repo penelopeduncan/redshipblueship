@@ -60,6 +60,14 @@
  *       and a .redsave holding it is refused even revealed; a .redsave with
  *       comboFlags 0x80 is refused at load.
  *
+ * #1702 stage C7 (the shared Bombchu Bag tier, armed by 0x80) adds:
+ *   (11) THE BIT STAYS UNWRITTEN: the seed package's refusal helper answers
+ *       exactly the unallocated bits; from source, no production writer names
+ *       0x80 (foreign_items.c holds only the predicate, playthrough.cpp nothing),
+ *       OoT's Bombchu Bag mode stand-in is defined once and called by no
+ *       production file, and the package's Validate refuses an unallocated flag
+ *       as a FORMAT error.
+ *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Helpers carry the
  * Cbs prefix because every included test file shares one translation unit.
@@ -964,6 +972,73 @@ TestResult ComboBagShuffleFrozen_Run(void) {
                       returnAt != std::string::npos && returnAt == afterNote && freeze != std::string::npos &&
                       returnAt < freeze,
                   "Playthrough_Init does not refuse a hidden second-word rule over the frozen word before the freeze");
+    }
+#endif
+
+    // ---- (11) #1702 C7: 0x80 ARMS THE SHARED BOMBCHU BAG TIER, AND NOTHING WRITES IT
+    // The seed package's refusal helper: every bit outside ALL_V1 (today 0x80) and
+    // nothing inside it. Catches the helper reading the wrong mask (0x7F refused,
+    // or 0x80 admitted, which would let a crafted package arm the tier).
+    CBS_CHECK(Combo_ComboFlagsUnallocated(0x7Fu) == 0u && Combo_ComboFlagsUnallocated(kCbsSharedChu) == kCbsSharedChu &&
+                  Combo_ComboFlagsUnallocated(0xFFu) == kCbsSharedChu,
+              "(11) Combo_ComboFlagsUnallocated answers %02X / %02X / %02X for 7F / 80 / FF, want 00 / 80 / 80",
+              (unsigned)Combo_ComboFlagsUnallocated(0x7Fu), (unsigned)Combo_ComboFlagsUnallocated(kCbsSharedChu),
+              (unsigned)Combo_ComboFlagsUnallocated(0xFFu));
+#ifdef RSBS_SOURCE_DIR
+    {
+        const auto count = [](const std::string& text, const char* needle) {
+            int n = 0;
+            const std::string want(needle);
+            for (size_t at = text.find(want); at != std::string::npos; at = text.find(want, at + 1)) {
+                n++;
+            }
+            return n;
+        };
+        const std::string common = CbsReadSource("src/common/foreign_items.c");
+        const std::string gen = CbsReadSource("games/oot/soh/Enhancements/randomizer/3drando/playthrough.cpp");
+        const std::string ootExports = CbsReadSource("games/oot/soh/GameExports_SingleExe.cpp");
+        const std::string ootSaves = CbsReadSource("games/oot/soh/SaveManager.cpp");
+        const std::string pkg = CbsReadSource("games/oot/soh/Enhancements/randomizer/SeedPackageSingleExe.cpp");
+        // No production writer names the bit before C8: foreign_items.c has only the
+        // predicate's read, and the creation (playthrough.cpp) none. Catches a
+        // writer landing before C8's masks move.
+        const int commonUses = count(common, "RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG");
+        const int genUses = count(gen, "RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG");
+        // The mode stand-in is defined once in OoT's exports (its only writer is
+        // the setter) and no production file calls it. Catches it leaking into play.
+        const int setModeDefs = count(ootExports, "OoT_SharedChuBagTest_SetMode(");
+        const int setModeWrites = count(ootExports, "sOoTChuBagModeForTest = ");
+        const int setModeProd =
+            count(gen, "OoT_SharedChuBagTest_SetMode") + count(ootSaves, "OoT_SharedChuBagTest_SetMode");
+        // The seed package's Validate refuses an unallocated flag before anything
+        // is applied: searched INSIDE Validate, and the next return after the
+        // call is the FORMAT refusal. Catches the check removed or moved out.
+        const size_t fnBegin = pkg.find("int Validate(const rsbs::seedpkg::Entries& entries");
+        const size_t fnEnd =
+            (fnBegin == std::string::npos) ? std::string::npos : pkg.find("void ApplyComboWorld(", fnBegin);
+        const std::string body = (fnBegin != std::string::npos && fnEnd != std::string::npos)
+                                     ? pkg.substr(fnBegin, fnEnd - fnBegin)
+                                     : std::string();
+        const size_t callAt = body.find("Combo_ComboFlagsUnallocated(rec.comboSettings.comboFlags) != 0u");
+        const size_t returnAt = (callAt == std::string::npos) ? std::string::npos : body.find("return ", callAt);
+        const std::string kFormatReturn = "return RSBS_SEEDPKG_ERR_FORMAT;";
+        const bool refused =
+            returnAt != std::string::npos && body.compare(returnAt, kFormatReturn.size(), kFormatReturn) == 0;
+        printf(
+            "[TEST] (11) 0x80 named in foreign_items.c %d time(s), playthrough.cpp %d; the mode stand-in defined %d, "
+            "written %d, called from production %d; the package's check at %zu, refused %d\n",
+            commonUses, genUses, setModeDefs, setModeWrites, setModeProd, callAt, refused ? 1 : 0);
+        CBS_CHECK(!common.empty() && !gen.empty() && commonUses == 1 && genUses == 0,
+                  "(11) comboFlags 0x80 is named by a production writer before C8 (foreign_items.c %d, playthrough.cpp "
+                  "%d; want 1, 0)",
+                  commonUses, genUses);
+        CBS_CHECK(
+            !ootExports.empty() && !ootSaves.empty() && setModeDefs == 1 && setModeWrites == 2 && setModeProd == 0,
+            "(11) OoT's Bombchu Bag mode stand-in leaked (defined %d, written %d, production calls %d; want 1, 2, "
+            "0)",
+            setModeDefs, setModeWrites, setModeProd);
+        CBS_CHECK(!body.empty() && callAt != std::string::npos && refused,
+                  "(11) the seed package's Validate does not refuse an unallocated combo flag as a FORMAT error");
     }
 #endif
 

@@ -43,6 +43,21 @@ std::string WrappedText(const std::string& text, unsigned int charactersPerLine)
     return WrappedText(text.c_str(), charactersPerLine);
 }
 
+// WrappedText for an ImGui label: ImGui never draws the text from the first "##" on (the
+// widget's hidden ID), so only the part before it is wrapped and the rest is appended
+// unchanged. A label without "##" comes out exactly as WrappedText gives it.
+std::string WrappedLabel(const char* label, unsigned int charactersPerLine) {
+    if (label == nullptr) {
+        return "";
+    }
+    const std::string full(label);
+    const size_t idStart = full.find("##");
+    if (idStart == std::string::npos) {
+        return WrappedText(label, charactersPerLine);
+    }
+    return WrappedText(full.substr(0, idStart), charactersPerLine) + full.substr(idStart);
+}
+
 void PaddedSeparator(bool padTop, bool padBottom, float extraVerticalTopPadding, float extraVerticalBottomPadding) {
     if (padTop) {
         Spacer(extraVerticalTopPadding);

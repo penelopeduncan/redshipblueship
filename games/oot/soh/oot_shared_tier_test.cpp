@@ -31,7 +31,9 @@ extern "C" void OoT_Inventory_ChangeUpgrade(s16 upgrade, s16 value); // GameExpo
  *  slot ITEM_NONE (as a real save's are, so a tier rising from zero has an empty
  *  slot to author the item into), GAMEMODE_NORMAL (what Combo_SaveIsLiveFile
  *  requires before the harvest or a pickup credit does anything), everything
- *  else zero, so the harvest offers no kind a nonzero value. */
+ *  else zero, so the harvest offers no kind a nonzero value. It wipes the live
+ *  save buffer both games share (src/common/unified_save.c), so a read of MM's
+ *  live state must come before it. */
 extern "C" void OoT_SharedTierTest_ArmLive(void) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     memset(gSaveContext.inventory.items, ITEM_NONE, sizeof(gSaveContext.inventory.items));
@@ -78,6 +80,48 @@ extern "C" int OoT_SharedTierTest_BombBagId(void) {
 /** OoT's own id for a progressive wallet (RG_PROGRESSIVE_WALLET). */
 extern "C" int OoT_SharedTierTest_WalletId(void) {
     return (int)RG_PROGRESSIVE_WALLET;
+}
+
+// ---- #1702 C7: the shared Bombchu Bag tier ------------------------------------
+
+// GameExports_SingleExe.cpp: the ROM-free stand-in for the seed's RSK_BOMBCHU_BAG
+// (-1 reads the seed). Only this TU calls it.
+extern "C" void OoT_SharedChuBagTest_SetMode(int mode);
+
+/** OoT's Bombchu Bag option as the shared tier's shims read it: 0 None, 1
+ *  Single, 2 Progressive (RO_BOMBCHU_BAG_*), or -1 to read the seed again. A row
+ *  that sets it puts -1 back before it returns. */
+extern "C" void OoT_SharedTierTest_SetChuBagMode(int mode) {
+    OoT_SharedChuBagTest_SetMode(mode);
+}
+
+/** OoT's Bombchu Bag state: bombchuUpgradeLevel @p level and the Bombchu item in
+ *  its slot when @p holds (cleared otherwise), holding @p chus. */
+extern "C" void OoT_SharedTierTest_SetChuBag(int level, int holds, int chus) {
+    gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel = (u8)level;
+    INV_CONTENT(ITEM_BOMBCHU) = holds ? ITEM_BOMBCHU : ITEM_NONE;
+    AMMO(ITEM_BOMBCHU) = (s8)chus;
+}
+
+/** OoT's live bombchuUpgradeLevel. */
+extern "C" int OoT_SharedTierTest_ChuBagLevel(void) {
+    return (int)gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel;
+}
+
+/** 1 when the Bombchu item is in its slot. */
+extern "C" int OoT_SharedTierTest_HoldsBombchu(void) {
+    return INV_CONTENT(ITEM_BOMBCHU) == ITEM_BOMBCHU ? 1 : 0;
+}
+
+/** OoT's live bombchu count. */
+extern "C" int OoT_SharedTierTest_Bombchus(void) {
+    return (int)AMMO(ITEM_BOMBCHU);
+}
+
+/** OoT's own id for the Bombchu Bag (RG_PROGRESSIVE_BOMBCHU_BAG): what OoT's pool
+ *  places under either Bombchu Bag option (item_pool.cpp). */
+extern "C" int OoT_SharedTierTest_ChuBagId(void) {
+    return (int)RG_PROGRESSIVE_BOMBCHU_BAG;
 }
 
 // ---- #1652 A1 / A3 (mm-stick-nut-bag-gate, test_stick_nut_bag_mm.c) --------

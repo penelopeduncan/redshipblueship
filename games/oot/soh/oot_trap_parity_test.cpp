@@ -25,7 +25,9 @@ extern "C" void OoT_Inventory_ChangeUpgrade(s16 upgrade, s16 value); // GameExpo
  *  the harvest's live-file gate requires) with a single magic meter, a wallet of
  *  tier 0 (99 rupees), @p healthCapacity and @p health in health units (0x10 a
  *  heart), @p magic and @p rupees. Everything else zero, and the magic machine
- *  idle, so the harvest reads exactly these. */
+ *  idle, so the harvest reads exactly these. It wipes the live save buffer both
+ *  games share (src/common/unified_save.c), so a read of MM's live state must
+ *  come before it. */
 extern "C" void OoT_TrapParityTest_ArmLive(int health, int healthCapacity, int magic, int rupees) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0;

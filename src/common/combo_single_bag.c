@@ -346,6 +346,24 @@ void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCoun
     }
 }
 
+// #1587 stage B: the fixed credits SingleBagSetFixedSharedSongCredits can emit at
+// once must fit the coordinator's buffer. Each first-word shared song has two
+// default checks (one per game) and each second-word one at most one (OoT's Sheik,
+// Royal Family's Tomb and Saria checks, MM's Southern Swamp check), so the worst
+// case is 2 x 3 + 9 = 15. A constant-expression popcount (none exists in src/common).
+#define RSBS_SB_POP2(x) ((x) - (((x) >> 1) & 0x55555555u))
+#define RSBS_SB_POP4(x) ((RSBS_SB_POP2(x) & 0x33333333u) + ((RSBS_SB_POP2(x) >> 2) & 0x33333333u))
+#define RSBS_SB_POPCOUNT32(x) \
+    (((((RSBS_SB_POP4(x) + (RSBS_SB_POP4(x) >> 4)) & 0x0F0F0F0Fu) * 0x01010101u) & 0xFFFFFFFFu) >> 24)
+RSBS_CTX_STATIC_ASSERT(2u * RSBS_SB_POPCOUNT32((uint32_t)RSBS_XITEM_SHARED_SONGS_MASK) +
+                               RSBS_SB_POPCOUNT32((uint32_t)RSBS_XITEM2_SHARED_SONGS) <=
+                           (uint32_t)RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP,
+                       "#1587: the fixed shared credits must fit RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP; each first-word "
+                       "shared song has two default checks, each second-word one at most one");
+RSBS_CTX_STATIC_ASSERT(RSBS_SB_POPCOUNT32((uint32_t)RSBS_XITEM_SHARED_SONGS_MASK) == 3u &&
+                           RSBS_SB_POPCOUNT32((uint32_t)RSBS_XITEM2_SHARED_SONGS) == 9u,
+                       "#1587: the popcount above counts the three first-word and nine second-word shared songs");
+
 static int SingleBagAddFixedSongCredit(ComboLogicFixedCredit* credits, int* ioCount, GameId hostGame, int hostCheck,
                                        GameId farGame, uint16_t farId, const char* familyName) {
     if (hostCheck < 0) {
@@ -368,15 +386,19 @@ static int SingleBagAddFixedSongCredit(ComboLogicFixedCredit* credits, int* ioCo
 }
 
 /**
- * #1169 XW15 / #1561, THE FIXED SHARED SONGS: under Shuffle Songs Off each armed
- * shared song (RSBS_XITEM_SHARED_SONGS_MASK and RSBS_XITEM2_WARP_SONG_SHARED) stays
- * on its default check(s) (Combo_SharedWarpSongFixedAtHome), placed natively by its
- * host game(s) and in no table, so the coordinator is told to credit the other game
- * when a host check is reached (Combo_Logic_SetFixedCredits). An OoT host hands MM
- * its member; an MM host hands OoT its member; a first-word shared song fixed in
- * both games emits both credits. With no host in either (a started song OoT did not
- * place, a mode other than Off) it adds nothing. Returns RSBS_COMBO_LOGIC_OK
- * otherwise. Every world without a shared song frozen on sets no credit.
+ * #1169 XW15 / #1561 / #1587, THE FIXED SHARED SONGS: under Shuffle Songs Off each
+ * armed shared song (RSBS_XITEM_SHARED_SONGS_MASK and RSBS_XITEM2_SHARED_SONGS: the
+ * seven warp songs, the Sun's Song and Saria's Song) stays on its default check(s)
+ * (Combo_SharedWarpSongFixedAtHome), placed natively by its host game(s) and in no
+ * table, so the coordinator is told to credit the other game when a host check is
+ * reached (Combo_Logic_SetFixedCredits). An OoT host hands MM its member; an MM host
+ * hands OoT its member; a first-word shared song fixed in both games emits both
+ * credits. The Sun's Song (Royal Family's Tomb) and Saria's Song (Saria at Sacred
+ * Forest Meadow) have an OoT host only: Majora's Mask has no default check for
+ * either, so each emits one credit, OoT to MM (#1587 stage B). With no host in
+ * either (a started song OoT did not place, a mode other than Off) it adds nothing.
+ * Returns RSBS_COMBO_LOGIC_OK otherwise. Every world without a shared song frozen on
+ * sets no credit.
  */
 static int SingleBagSetFixedSharedSongCredits(void) {
     ComboLogicFixedCredit credits[RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP];
@@ -384,7 +406,9 @@ static int SingleBagSetFixedSharedSongCredits(void) {
     for (int word = 0; word < 2; ++word) {
         uint32_t shared = Combo_SharedFamiliesArmed() & (uint32_t)RSBS_XITEM_SHARED_SONGS_MASK;
         if (word == 1) {
-            shared = Combo_SharedFamilies2Armed() & RSBS_XITEM2_WARP_SONG_SHARED;
+            // [RSBS #1587] stage B: every second-word shared song, the Sun's Song and
+            // Saria's Song beside the seven warp songs.
+            shared = Combo_SharedFamilies2Armed() & RSBS_XITEM2_SHARED_SONGS;
         }
         for (uint32_t b = 0; shared != 0u && b < RSBS_XITEM_BIT_COUNT; ++b) {
             const uint32_t bit = 1u << b;
@@ -526,10 +550,12 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         }
         creq.sharedPairCount = pairCount;
         creq.sharedPairs = (creq.sharedPairCount > 0) ? sPairs : NULL;
-        // #1169 XW15: the shared warp songs that stay on their own check under Off
-        // make no bag row (neither pool holds a copy); the coordinator credits the
-        // other game where each one sits. Set before the fill, kept for its WotH
-        // rounds and every exit round until Combo_SingleBag_Forget.
+        // #1169 XW15 / #1561 / #1587: the shared songs that stay on their own check
+        // under Off (the warp songs, the Sun's Song, Saria's Song and the three
+        // first-word songs) make no bag row (neither pool holds a copy); the
+        // coordinator credits the other game where each one sits. Set before the
+        // fill, kept for its WotH rounds and every exit round until
+        // Combo_SingleBag_Forget.
         status = SingleBagSetFixedSharedSongCredits();
         if (status != RSBS_COMBO_LOGIC_OK) {
             fprintf(stderr, "[SingleBag] the bag could not be composed: %s (fixed shared songs)\n",

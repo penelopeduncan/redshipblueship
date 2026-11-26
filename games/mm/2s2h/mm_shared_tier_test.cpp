@@ -69,6 +69,12 @@ extern "C" int MM_SharedTierTest_HostCheck(int which) {
     (void)which;
     return -1;
 }
+extern "C" void MM_SharedTierTest_SetChuBagFlags(int bits) {
+    (void)bits;
+}
+extern "C" int MM_SharedTierTest_ChuBagFlags(void) {
+    return -1;
+}
 #else
 
 extern "C" {
@@ -83,7 +89,8 @@ extern SaveContext gSaveContext;
  *  requires before the harvest or a pickup credit does anything), every item
  *  slot at ITEM_NONE as a real save's are (a zeroed slot reads as item 0, which
  *  MM_EnsureInventoryItem treats as occupied), everything else zero, the rando
- *  check table included. */
+ *  check table included. It wipes the live save buffer both games share
+ *  (src/common/unified_save.c), so a read of OoT's live state must come before it. */
 extern "C" void MM_SharedTierTest_ArmLive(void) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     memset(gSaveContext.save.saveInfo.inventory.items, ITEM_NONE, sizeof(gSaveContext.save.saveInfo.inventory.items));
@@ -179,6 +186,39 @@ extern "C" int MM_SharedTierTest_BottleId(void) {
  *  RC_UNKNOWN; the bombchu row uses the first). */
 extern "C" int MM_SharedTierTest_HostCheck(int which) {
     return (int)RC_UNKNOWN + 1 + which;
+}
+
+// ---- #1702 C7: the shared Bombchu Bag tier's thermometer ------------------------
+
+static const int kMMChuBagFlags[3] = { RANDO_INF_OBTAINED_BOMBCHU_BAG, RANDO_INF_BOMBCHU_BAG_LEVEL_2,
+                                       RANDO_INF_BOMBCHU_BAG_LEVEL_3 };
+
+/** MM's live save as a RANDOMIZER file (the flags are rando flags) holding the
+ *  Bombchu Bag thermometer @p bits: 1 flag 81, 2 flag 82, 4 flag 83 (each cleared
+ *  otherwise). Call after MM_SharedTierTest_ArmLive. */
+extern "C" void MM_SharedTierTest_SetChuBagFlags(int bits) {
+    gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    for (int i = 0; i < 3; i++) {
+        const int flag = kMMChuBagFlags[i];
+        const u16 bit = (u16)(1u << (flag & 0xF));
+        if ((bits & (1 << i)) != 0) {
+            gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] |= bit;
+        } else {
+            gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] &= (u16)~bit;
+        }
+    }
+}
+
+/** MM's three Bombchu Bag thermometer flags as bits (1 flag 81, 2 flag 82, 4 flag 83). */
+extern "C" int MM_SharedTierTest_ChuBagFlags(void) {
+    int bits = 0;
+    for (int i = 0; i < 3; i++) {
+        const int flag = kMMChuBagFlags[i];
+        if ((gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1u << (flag & 0xF))) != 0u) {
+            bits |= 1 << i;
+        }
+    }
+    return bits;
 }
 
 #endif

@@ -67,7 +67,9 @@ extern "C" void MM_RegisterSharedBombchuBagHook(void);
  *  starts at ITEM_NONE, as a real save's does (a zeroed slot reads as item 0,
  *  which MM_EnsureInventoryItem treats as occupied and never fills, and which
  *  never reads as ITEM_BOMBCHU whatever the code under test does). Everything
- *  else zero, the rando check table included. */
+ *  else zero, the rando check table included. It wipes the live save buffer both
+ *  games share (src/common/unified_save.c), so a read of OoT's live state must
+ *  come before it. */
 extern "C" void MM_SharedBombchuTest_ArmLive(int bombBagTier, int count) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     memset(gSaveContext.save.saveInfo.inventory.items, ITEM_NONE, sizeof(gSaveContext.save.saveInfo.inventory.items));

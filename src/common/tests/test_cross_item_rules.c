@@ -885,12 +885,18 @@ TestResult Test_SharedFamilyMerge(void) {
                 Combo_SharedFamilyMemberGet(GAME_MM, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, &got[3]),
             };
             const int want[4] = { ootWalletId, ootBagId, mmWalletId, mmBagId };
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 3; i++) {
                 XIR_CHECK(have[i] && (int)got[i].nativeId == want[i] && want[i] >= 0,
-                          "(0) possession member %d (OoT wallet, OoT bag, MM wallet, MM bag): registered %d, id %d, "
-                          "want %d (#1702 C1; MM's bag member keeps RI_UNKNOWN, dead since C2)",
+                          "(0) possession member %d (OoT wallet, OoT bag, MM wallet): registered %d, id %d, "
+                          "want %d (#1702 C1)",
                           i, have[i] ? 1 : 0, (int)got[i].nativeId, want[i]);
             }
+            // #1702 C7 deleted MM's bag member: flag 81 is the shared Bombchu Bag
+            // tier's first thermometer bit now, with one writer (MM's tier apply).
+            XIR_CHECK(!have[3] && want[3] == -1,
+                      "(0) MM's Bombchu Bag possession member is registered (%d, id %d) or its test id is %d: C7 "
+                      "deleted it, and flag 81 must have one writer (#1702 C7)",
+                      have[3] ? 1 : 0, (int)got[3].nativeId, want[3]);
             XIR_CHECK(!Combo_SharedFamilyMemberPooled(GAME_OOT, RSBS_XFAMILY_SLOT_CHILD_WALLET) &&
                           !Combo_SharedFamilyMemberPooled(GAME_OOT, RSBS_XFAMILY_SLOT_BOMBCHU_BAG) &&
                           !Combo_SharedFamilyMemberPooled(GAME_MM, RSBS_XFAMILY_SLOT_CHILD_WALLET) &&

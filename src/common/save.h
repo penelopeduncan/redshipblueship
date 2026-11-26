@@ -135,7 +135,11 @@
 //      not yet written) after sharedFamilyOwned2 at offset 2720;
 //      sizeof(ComboContext) 2720 -> 2976; a revision-4 record zero-extends to
 //      an empty set, nothing pending.
-#define RSBS_SAVE_LAYOUT_REVISION 5u
+//   6  #1702 C7 appends ComboContext.sharedResourcesExt2 (ComboSharedResource[8],
+//      the third shared-resource block) after crossingPendingOoT at offset 2976
+//      (ADR 0009 claim 25); sizeof(ComboContext) 2976 -> 3008; a revision-5
+//      record zero-extends to eight EMPTY slots.
+#define RSBS_SAVE_LAYOUT_REVISION 6u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 

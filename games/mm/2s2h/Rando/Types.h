@@ -3587,6 +3587,12 @@ typedef enum {
     // and C3. After the last flag so every saved flag keeps its number.
     RANDO_INF_OBTAINED_CHILD_WALLET,
     RANDO_INF_OBTAINED_BOMBCHU_BAG,
+    // RedShipBlueShip #1702 stage C7: the shared Bombchu Bag tier's thermometer.
+    // RANDO_INF_OBTAINED_BOMBCHU_BAG is its first flag (the bag, tier >= 1), these
+    // two its levels 2 and 3. Written only by the tier's apply while the frozen
+    // comboFlags 0x80 arms it; read by nothing in MM's gameplay until stage C8.
+    RANDO_INF_BOMBCHU_BAG_LEVEL_2,
+    RANDO_INF_BOMBCHU_BAG_LEVEL_3,
 #endif
     RANDO_INF_MAX,
 } RandoInf;
