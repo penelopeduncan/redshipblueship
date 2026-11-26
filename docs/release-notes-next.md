@@ -198,6 +198,45 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   RedShipBlueShip or turned Debug Mode on again and ticked and unticked the row. The option is now switched off in the
   game as soon as Debug Mode goes off. In normal play every actor's object is loaded, so this only shows when you spawn
   actors yourself.
+- **Ocarina of Time model options changed while Majora's Mask runs now reach Ocarina of Time** (issue #1829). Five
+  options change Ocarina of Time's models in memory: Fix Hand Holding Hammer (Enhancements > Fixes), Show Age-Dependent
+  Equipment and Color Temple of Time's Medallions (Enhancements > Graphics), Mirrored World (Enhancements > Extra Modes)
+  and Map & Compass Colors Match Dungeon (Randomizer > General; it only shows in a randomizer seed whose maps and
+  compasses are shuffled outside their dungeons). When one of them changed while Majora's Mask was the running game, by
+  a click on its row, a preset or a dropped config file, four of them were applied to a copy of the models that Ocarina
+  of Time does not draw, and a Mirrored World change did nothing for Ocarina of Time at that moment. The change is now
+  held back and made on Ocarina of Time's own models once you are back: Mirrored World set to Disabled on Ocarina of
+  Time's first frame (the other mirror modes when the arrival scene loads, as before), the other four in the first frame
+  of the scene you arrive in, before that frame is drawn. Several changes of one option while Majora's Mask runs end in
+  one change with the last value. Applying an Enhancements preset counts as a change of all five: a preset replaces the
+  whole Enhancements block, so it also turns off Show Age-Dependent Equipment, sets Mirrored World to Disabled, turns
+  Fix Hand Holding Hammer on (off with Reset to Default), turns the medallion colours off (Curated Randomizer turns them
+  on) and puts Map & Compass Colors Match Dungeon back to on. A mirror that an older version left stuck with Mirrored
+  World set to Disabled is cleared on Ocarina of Time's first frame in this version. Tests drive the bookkeeping, with
+  the patch code of four options skipped and Mirrored World's real code run with no models loaded; nobody has looked at
+  any of these models on screen. What you saw before this version, back in Ocarina of Time:
+  - Fix Hand Holding Hammer, Show Age-Dependent Equipment or Color Temple of Time's Medallions turned off: the old look
+    stayed until you changed the option, applied an Enhancements preset or dropped a config file while Ocarina of Time
+    ran, or restarted RedShipBlueShip. Turning one of them on already worked: the hammer and equipment options from the
+    scene you arrived in (the hammer fix only shows on adult Link), the medallion colours from the next time you entered
+    the Temple of Time.
+  - Map & Compass Colors Match Dungeon changed either way: Ocarina of Time kept the old colours until you loaded a file
+    from Ocarina of Time's file select, or changed the option, applied an Enhancements preset or dropped a config file
+    while Ocarina of Time ran.
+  - Mirrored World set to Disabled from its row: Ocarina of Time's whole world stayed mirrored. The row click saves your
+    settings, so a restart did not undo it. Picking Always in an Ocarina of Time scene and then Disabled there did, and
+    so did applying an Enhancements preset.
+- **Starting in Majora's Mask no longer leaves Ocarina of Time without its texture patches** (issue #1829). This only
+  concerns you if you start RedShipBlueShip with the command-line flag `--game mm`, which boots into Majora's Mask;
+  nothing in the menus does that. Ocarina of Time's start-up texture patches were then made on a copy of its models that
+  Ocarina of Time does not draw. After the first switch to Ocarina of Time, its arrow tips, child Link's held Deku
+  Stick, the Freezard and the Iron Knuckle's armour had neither form of the Fix Out of Bounds Textures patch, and
+  boulder fragments were missing a patch without which, by a note in the code, they are drawn invisible. That lasted
+  until you clicked Fix Out of Bounds Textures while Ocarina of Time ran (twice, to keep its value) or restarted without
+  the flag. The patches are now made on Ocarina of Time's first frame after the first switch. On a normal start nothing
+  should look different: the same patches are now made on Ocarina of Time's first frame instead of during start-up,
+  before any of these models is drawn. Integration tests that start in Majora's Mask and switch to Ocarina of Time run
+  the new code, but none checks a model.
 
 ### Build and tests
 
