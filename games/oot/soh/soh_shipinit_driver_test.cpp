@@ -103,7 +103,8 @@
  * change while MM runs is owed and paid on OoT's next frame, the four that read
  * OoT's save only on a frame with a play state. FAIL 20 is the setup (nothing
  * left owed). Leg 11: a change while MM runs makes no pass and owes one
- * (FAIL 21). Leg 12: the debt is not paid under MM (FAIL 22), a save-reading
+ * (FAIL 21). Leg 12: the debt is not paid under MM even with a play state
+ * (FAIL 22; leg 14b checks the same for a pass needing none), a save-reading
  * debt waits for a play state (FAIL 23), and it is paid once under OoT and not
  * twice (FAIL 24). Leg 13: a change while OoT runs patches at once and owes
  * nothing, and one at boot (no game current) is owed (FAIL 25). Leg 14: two
@@ -592,7 +593,9 @@ extern "C" int OoT_ShipInitMMDriver_RunHeadless(void) {
             }
 
             // Leg 12: not paid under MM; a save-reading debt waits for a play state; paid once under OoT, not twice.
-            const int paidUnderMm = OoT_GfxPatches_ApplyOwed();
+            // Paid with a play state, so only the payment's running-game check can refuse it (the play gate would
+            // hide that check's removal otherwise).
+            const int paidUnderMm = ShipInitDriver_PayOwedInPlay();
             const int owedAfterMm = OoT_GfxPatchesTest_Owed(row.id);
             Context_SetCurrentGame(GAME_OOT);
             const int paidWithoutPlay = OoT_GfxPatches_ApplyOwed(); // OoT_gPlayState is null: OoT's Opening frame
@@ -665,6 +668,12 @@ extern "C" int OoT_ShipInitMMDriver_RunHeadless(void) {
         CVarSetInteger(kOwedGfxProbeKey, 1);
         OoT_GfxPatchesTest_RunOrOweProbe(kOwedGfxProbeKey);
         CVarSetInteger(kOwedGfxProbeKey, 0);
+        const int paidProbeUnderMm = OoT_GfxPatches_ApplyOwed(); // needs no play state: only the game check refuses
+        if (paidProbeUnderMm != 0 || OoT_GfxPatchesTest_ProbeSeen() != -1) {
+            printf("[TEST] probe paid under MM %d, saw %d\n", paidProbeUnderMm, OoT_GfxPatchesTest_ProbeSeen());
+            return Fail(22, "an owed OoT display-list pass that needs no play state was paid while MM still ran, "
+                            "under MM's resource cache owner (#1829)");
+        }
         Context_SetCurrentGame(GAME_OOT);
         const int paidProbe = OoT_GfxPatches_ApplyOwed(); // no play state
         if (paidProbe != 1 || OoT_GfxPatchesTest_ProbeSeen() != 0) {
