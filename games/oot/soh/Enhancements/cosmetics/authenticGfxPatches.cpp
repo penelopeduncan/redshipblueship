@@ -3,6 +3,9 @@
 #include "soh/OTRGlobals.h"
 #include "soh/cvar_prefixes.h"
 #include "soh/ResourceManagerHelpers.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "context.h" // src/common: Context_GetCurrentGame (#1817)
+#endif
 
 extern "C" {
 #include <libultraship/libultra.h>
@@ -300,6 +303,87 @@ void ApplyAuthenticGfxPatches() {
 
     PatchBoulderFragment();
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+// RSBS (#1817): ApplyAuthenticGfxPatches writes into whatever copy of each display list the current resource cache
+// owner holds (ResourceMgr_PatchGfxByName, #981), and while Majora's Mask runs that is MM's owner (#1040). So a pass
+// is made only while OoT runs; one asked for while MM runs is owed to OoT and paid on OoT's next frame
+// (CosmeticsUpdateTick), the shape of MM_GfxPatches_Reapply on the MM side. The counters and the body skip are the
+// ROM-free MMShipInitDriver row's seams (games/oot/soh/soh_shipinit_driver_test.cpp).
+static bool sOoTAuthenticGfxOwed = false;
+static int sOoTAuthenticGfxRequests = 0;
+static int sOoTAuthenticGfxPasses = 0;
+static bool sOoTAuthenticGfxBodySkipped = false;
+
+static void OoTAuthenticGfx_RunPass() {
+    sOoTAuthenticGfxOwed = false;
+    sOoTAuthenticGfxPasses++;
+    if (!sOoTAuthenticGfxBodySkipped) {
+        ApplyAuthenticGfxPatches();
+    }
+}
+
+extern "C" int OoT_AuthenticGfxPatches_Reapply(void) {
+    sOoTAuthenticGfxRequests++;
+    if (Context_GetCurrentGame() != GAME_OOT) {
+        sOoTAuthenticGfxOwed = true;
+        return 0;
+    }
+    OoTAuthenticGfx_RunPass();
+    return 1;
+}
+
+extern "C" int OoT_AuthenticGfxPatches_ApplyOwed(void) {
+    if (!sOoTAuthenticGfxOwed || Context_GetCurrentGame() != GAME_OOT) {
+        return 0;
+    }
+    OoTAuthenticGfx_RunPass();
+    return 1;
+}
+
+extern "C" int OoT_AuthenticGfxPatchesTest_Requests(void) {
+    return sOoTAuthenticGfxRequests;
+}
+
+extern "C" int OoT_AuthenticGfxPatchesTest_Passes(void) {
+    return sOoTAuthenticGfxPasses;
+}
+
+extern "C" int OoT_AuthenticGfxPatchesTest_Owed(void) {
+    return sOoTAuthenticGfxOwed ? 1 : 0;
+}
+
+extern "C" void OoT_AuthenticGfxPatchesTest_SetBodySkipped(int skip) {
+    sOoTAuthenticGfxBodySkipped = skip != 0;
+}
+
+// RSBS (#1817): OoT's half of a bulk CVar write (ShipInitMmBulkCVarWrite in soh/ShipInit.hpp). A preset or a dropped
+// config ends in ShipInit::InitAll, and no OoT registrar is keyed on Fix Out of Bounds Textures (the row's callback
+// applies the patches), so the close reapplies them when the key's effective value changed. Reads the CVar only.
+static bool sOoTAuthenticGfxBulkOpen = false;
+static bool sOoTAuthenticGfxBulkFixOob = false;
+
+static bool OoTAuthenticGfx_FixOobOn() {
+    return CVarGetInteger(CVAR_ENHANCEMENT("FixTexturesOOB"), 0) != 0;
+}
+
+extern "C" void OoT_ShipInit_BeginBulkCVarWrite(void) {
+    sOoTAuthenticGfxBulkFixOob = OoTAuthenticGfx_FixOobOn();
+    sOoTAuthenticGfxBulkOpen = true;
+}
+
+extern "C" int OoT_ShipInit_EndBulkCVarWrite(void) {
+    if (!sOoTAuthenticGfxBulkOpen) {
+        return 0;
+    }
+    sOoTAuthenticGfxBulkOpen = false;
+    if (OoTAuthenticGfx_FixOobOn() == sOoTAuthenticGfxBulkFixOob) {
+        return 0;
+    }
+    (void)OoT_AuthenticGfxPatches_Reapply();
+    return 1;
+}
+#endif
 
 // Patches the Sold Out GI DL to render the texture in the mirror boundary
 void PatchMirroredSoldOutGI() {

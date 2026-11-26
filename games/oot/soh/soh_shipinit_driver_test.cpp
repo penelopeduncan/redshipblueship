@@ -81,6 +81,20 @@
  * drive-every-key close or a stale snapshot would break. With the close made a
  * no-op (main's behaviour), leg 7 fails FAIL(11). Both legs leave the probe and
  * Autosave keys absent, never stored.
+ *
+ * LEGS 9 AND 10 (#1817): the same scope also closes OoT's half
+ * (OoT_ShipInit_EndBulkCVarWrite, authenticGfxPatches.cpp): no OoT registrar is
+ * keyed on Fix Out of Bounds Textures, so the close reapplies OoT's authentic
+ * gfx patches when that key's effective value changed, and only while OoT runs
+ * (they would land under MM's resource cache owner otherwise, #1040); while MM
+ * runs the pass is owed and paid on OoT's next frame. Leg 9 runs as OoT: a flip
+ * requests and makes one pass (FAIL 16), and an empty scope or a same-value
+ * rewrite (a stored 1 over 1, a stored 0 over absent) requests none (FAIL 17).
+ * Leg 10 runs as MM: a flip requests one pass, makes none and owes it (FAIL 18);
+ * the owed pass is not paid while MM runs, is paid once when OoT runs, and not
+ * twice (FAIL 19). The patch body is skipped once a pass is counted (no game
+ * archive in this row); the counters are the observables. The running game is
+ * put back and the key ends as found.
  */
 
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -90,6 +104,8 @@
 
 #include <cstdio>
 #include <cstring>
+
+#include "context.h" // src/common: Context_GetCurrentGame, Context_SetCurrentGame (#1817)
 
 // MM-side probe support (games/mm/2s2h/mm_shipinit_driver_test.cpp) and the
 // production bridge's non-inserting map query
@@ -104,6 +120,13 @@ int MM_ShipInit_RegistrarCountForPath(const char* path);
 void MM_ShipInit_OnCVarChanged(const char* path);
 // #614: real-registrar settled-count probe (games/mm/2s2h/mm_shipinit_driver_test.cpp).
 int MMShipInitTest_AutosaveDrawFinishSettledCount(void);
+// #1817: OoT's owner-gated authentic gfx reapply and its seams
+// (games/oot/soh/Enhancements/cosmetics/authenticGfxPatches.cpp).
+int OoT_AuthenticGfxPatches_ApplyOwed(void);
+int OoT_AuthenticGfxPatchesTest_Requests(void);
+int OoT_AuthenticGfxPatchesTest_Passes(void);
+int OoT_AuthenticGfxPatchesTest_Owed(void);
+void OoT_AuthenticGfxPatchesTest_SetBodySkipped(int skip);
 }
 
 namespace {
@@ -118,6 +141,25 @@ constexpr const char* kConvergedKey = "gEnhancements.RememberSaveLocation";
 // this TU must not see MM's SavingEnhancements.cpp, so a spelling drift
 // between the two games shows up as a red leg 6 rather than a silent pass.
 constexpr const char* kAutosaveKey = "gEnhancements.Autosave";
+
+// #1817: the one key that chooses OoT's authentic gfx patches (authenticGfxPatches.cpp).
+constexpr const char* kFixTexturesOobKey = "gEnhancements.FixTexturesOOB";
+
+// #1817: puts the running game, the Fix Out of Bounds Textures key and the patch body back on every return.
+struct ShipInitDriverOoTGfxRestore {
+    GameId game;
+    bool oobWasStored;
+    int32_t oobValue;
+    ~ShipInitDriverOoTGfxRestore() {
+        Context_SetCurrentGame(game);
+        if (oobWasStored) {
+            CVarSetInteger(kFixTexturesOobKey, oobValue);
+        } else {
+            CVarClear(kFixTexturesOobKey);
+        }
+        OoT_AuthenticGfxPatchesTest_SetBodySkipped(0);
+    }
+};
 
 int Fail(int code, const char* msg) {
     printf("[TEST] FAIL(%d): %s\n", code, msg);
@@ -325,10 +367,87 @@ extern "C" int OoT_ShipInitMMDriver_RunHeadless(void) {
     }
     MMShipInitTest_ResetProbes();
 
+    // ---- legs 9 and 10 (#1817): OoT's authentic gfx patches follow a bulk write, under OoT's owner only ----
+    // A preset flips Fix Out of Bounds Textures (all three curated presets set it to 1), and no OoT registrar is keyed
+    // on it, so InitAll left OoT's patches as they were while the scope's MM half reapplied MM's. The patch body is
+    // skipped once a pass is counted: this row mounts no game archive.
+    {
+        ShipInitDriverOoTGfxRestore restore{ Context_GetCurrentGame(), CVarExists(kFixTexturesOobKey),
+                                             CVarGetInteger(kFixTexturesOobKey, 0) };
+        OoT_AuthenticGfxPatchesTest_SetBodySkipped(1);
+        CVarClear(kFixTexturesOobKey);
+
+        // Leg 9: OoT runs.
+        Context_SetCurrentGame(GAME_OOT);
+        (void)OoT_AuthenticGfxPatches_ApplyOwed(); // pays a pass an earlier row left owed, so leg 10 starts clean
+        int requests = OoT_AuthenticGfxPatchesTest_Requests();
+        int passes = OoT_AuthenticGfxPatchesTest_Passes();
+        {
+            ShipInitMmBulkCVarWrite bulk;
+            CVarSetInteger(kFixTexturesOobKey, 1);
+        }
+        if (OoT_AuthenticGfxPatchesTest_Requests() != requests + 1 ||
+            OoT_AuthenticGfxPatchesTest_Passes() != passes + 1) {
+            printf("[TEST] OoT authentic gfx requests +%d, passes +%d\n",
+                   OoT_AuthenticGfxPatchesTest_Requests() - requests, OoT_AuthenticGfxPatchesTest_Passes() - passes);
+            return Fail(16,
+                        "a bulk CVar write that turned Fix Out of Bounds Textures on did not reapply OoT's authentic "
+                        "gfx patches exactly once while OoT ran: after a preset OoT keeps the old patches while MM "
+                        "follows the key (#1817)");
+        }
+        // An empty scope, a stored 1 rewritten over 1, and a stored 0 written over absent: no effective change.
+        requests = OoT_AuthenticGfxPatchesTest_Requests();
+        { ShipInitMmBulkCVarWrite emptyBulk; }
+        {
+            ShipInitMmBulkCVarWrite bulk;
+            CVarSetInteger(kFixTexturesOobKey, 1);
+        }
+        const int requestsAfterSameValue = OoT_AuthenticGfxPatchesTest_Requests();
+        CVarClear(kFixTexturesOobKey); // not a scope: nothing is requested here
+        {
+            ShipInitMmBulkCVarWrite bulk;
+            CVarSetInteger(kFixTexturesOobKey, 0);
+        }
+        if (requestsAfterSameValue != requests || OoT_AuthenticGfxPatchesTest_Requests() != requests) {
+            return Fail(17, "a bulk CVar write that left Fix Out of Bounds Textures' effective value as it was "
+                            "reapplied OoT's authentic gfx patches: the close compares stored values, not effective "
+                            "ones, or reapplies when nothing changed (#1817)");
+        }
+        CVarClear(kFixTexturesOobKey);
+
+        // Leg 10: MM runs.
+        Context_SetCurrentGame(GAME_MM);
+        requests = OoT_AuthenticGfxPatchesTest_Requests();
+        passes = OoT_AuthenticGfxPatchesTest_Passes();
+        {
+            ShipInitMmBulkCVarWrite bulk;
+            CVarSetInteger(kFixTexturesOobKey, 1);
+        }
+        if (OoT_AuthenticGfxPatchesTest_Requests() != requests + 1 || OoT_AuthenticGfxPatchesTest_Passes() != passes ||
+            OoT_AuthenticGfxPatchesTest_Owed() != 1) {
+            return Fail(18, "a bulk CVar write that flipped Fix Out of Bounds Textures while MM ran made an OoT "
+                            "authentic gfx pass (it would land under MM's resource cache owner) or did not owe it to "
+                            "OoT (#1817)");
+        }
+        const int paidUnderMm = OoT_AuthenticGfxPatches_ApplyOwed();
+        Context_SetCurrentGame(GAME_OOT);
+        const int paidUnderOoT = OoT_AuthenticGfxPatches_ApplyOwed();
+        const int passesAfterPay = OoT_AuthenticGfxPatchesTest_Passes();
+        const int owedAfterPay = OoT_AuthenticGfxPatchesTest_Owed();
+        const int paidTwice = OoT_AuthenticGfxPatches_ApplyOwed();
+        if (paidUnderMm != 0 || paidUnderOoT != 1 || passesAfterPay != passes + 1 || owedAfterPay != 0 ||
+            paidTwice != 0 || OoT_AuthenticGfxPatchesTest_Passes() != passes + 1) {
+            printf("[TEST] paid under MM %d, under OoT %d (passes +%d, owed %d), again %d\n", paidUnderMm, paidUnderOoT,
+                   passesAfterPay - passes, owedAfterPay, paidTwice);
+            return Fail(19, "the OoT authentic gfx pass owed while MM ran was paid under MM, lost, or paid twice "
+                            "(#1817)");
+        }
+    }
+
     printf("[TEST] PASS: a CVar change on the unified menu path re-arms MM's registrars (%d on the converged key), "
            "while the '*' and 'IS_RANDO' pseudo-paths stay MM-driven; the real Autosave registrar (%d on its "
            "converged key) re-arms idempotently too (#614); a bulk CVar write re-drives exactly the keys it changed "
-           "(#1811)\n",
+           "(#1811) and reapplies OoT's authentic gfx patches under OoT's owner only (#1817)\n",
            convergedRegistrars, autosaveRegistrars);
     return 0;
 }

@@ -580,6 +580,7 @@ int hue = 0;
 void CosmeticsUpdateTick() {
 #ifdef RSBS_SINGLE_EXECUTABLE
     CosmeticsEditor_ReapplyDeferredGfxPatches(); // #1040 R1: a pass owed while MM ran
+    OoT_AuthenticGfxPatches_ApplyOwed();         // #1817: Fix Out of Bounds Textures changed while MM ran
 #endif
     int index = 0;
     float rainbowSpeed = CVarGetFloat(CVAR_COSMETIC("RainbowSpeed"), 0.6f);

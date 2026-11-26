@@ -673,6 +673,66 @@ def test_bulk_cvar_writers_rearm_mm_registrars():
     )
 
 
+OOT_AUTHENTIC_GFX = "games/oot/soh/Enhancements/cosmetics/authenticGfxPatches.cpp"
+
+
+def test_oot_authentic_gfx_patches_follow_bulk_writes_under_oot_owner():
+    """#1817: OoT's authentic gfx patches (Fix Out of Bounds Textures) follow a bulk CVar write, under OoT's owner.
+
+    No OoT registrar is keyed on gEnhancements.FixTexturesOOB, so a preset's InitAll never reapplied OoT's patches
+    while the #1811 scope reapplied MM's. The scope's guard now opens and closes OoT's half too, the row's callback goes
+    through the owner-gated reapply instead of patching under whichever game owns the resource cache, and OoT's frame
+    tick pays a pass owed while MM ran. MMShipInitDriver legs 9-10 (FAIL 16-19) drive the helpers; this lock is what
+    catches a guard, row or tick that stops calling them.
+    """
+    shipinit = _strip_comments((REPO_ROOT / "games/oot/soh/ShipInit.hpp").read_text(encoding="utf-8"))
+    guard = _block_after(shipinit, r"struct\s+ShipInitMmBulkCVarWrite\s*\{")
+    ctor = _block_after(guard, r"ShipInitMmBulkCVarWrite\s*\(\s*\)")
+    dtor = _block_after(guard, r"~ShipInitMmBulkCVarWrite\s*\(\s*\)")
+    assert "OoT_ShipInit_BeginBulkCVarWrite();" in ctor and "MM_ShipInit_BeginBulkCVarWrite();" in ctor, (
+        "#1817: ShipInitMmBulkCVarWrite's constructor must open both games' halves of the bulk CVar write"
+    )
+    assert "OoT_ShipInit_EndBulkCVarWrite()" in dtor and "MM_ShipInit_EndBulkCVarWrite()" in dtor, (
+        "#1817: ShipInitMmBulkCVarWrite's destructor must close both games' halves of the bulk CVar write"
+    )
+
+    end = _function_body(REPO_ROOT / OOT_AUTHENTIC_GFX, "OoT_ShipInit_EndBulkCVarWrite")
+    begin = _function_body(REPO_ROOT / OOT_AUTHENTIC_GFX, "OoT_ShipInit_BeginBulkCVarWrite")
+    assert "OoT_AuthenticGfxPatches_Reapply()" in end, (
+        "#1817: OoT's bulk close must reapply through the owner-gated OoT_AuthenticGfxPatches_Reapply"
+    )
+    assert not re.search(r"\bApplyAuthenticGfxPatches\s*\(", end), (
+        "#1817: OoT's bulk close calls ApplyAuthenticGfxPatches directly, bypassing the owner gate"
+    )
+    for fn_name, fn_body in (("Begin", begin), ("End", end)):
+        assert not re.search(r"\bCVar(?:Set|Clear|Save|Load)\w*\s*\(", fn_body), (
+            f"#1817: OoT's bulk {fn_name} writes a CVar; a re-drive reads the keys, never writes them"
+        )
+    reapply = _function_body(REPO_ROOT / OOT_AUTHENTIC_GFX, "OoT_AuthenticGfxPatches_Reapply")
+    assert re.search(r"Context_GetCurrentGame\(\)\s*!=\s*GAME_OOT", reapply), (
+        "#1817: OoT_AuthenticGfxPatches_Reapply must owe the pass while OoT is not the running game"
+    )
+
+    menu = _strip_comments((REPO_ROOT / "games/oot/soh/SohGui/SohMenuEnhancements.cpp").read_text(encoding="utf-8"))
+    row_at = menu.find('"Fix Out of Bounds Textures"')
+    assert row_at >= 0, "#1817: the Fix Out of Bounds Textures row is gone from SohMenuEnhancements.cpp"
+    row_end = menu.find("AddWidget(", row_at)
+    row = menu[row_at:row_end if row_end > row_at else len(menu)]
+    single = re.search(r"#ifdef RSBS_SINGLE_EXECUTABLE(.*?)#else", row, re.S)
+    assert single, "#1817: the Fix Out of Bounds Textures callback lost its RSBS_SINGLE_EXECUTABLE branch"
+    assert "OoT_AuthenticGfxPatches_Reapply()" in single.group(1), (
+        "#1817: the Fix Out of Bounds Textures callback must reapply through the owner-gated helper in single-exe"
+    )
+    assert not re.search(r"\bApplyAuthenticGfxPatches\s*\(", single.group(1)), (
+        "#1817: the Fix Out of Bounds Textures callback patches under whichever game owns the resource cache"
+    )
+
+    tick = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/cosmetics/CosmeticsEditor.cpp", "CosmeticsUpdateTick")
+    assert "OoT_AuthenticGfxPatches_ApplyOwed();" in tick, (
+        "#1817: CosmeticsUpdateTick must pay an OoT authentic gfx pass owed while MM ran"
+    )
+
+
 def test_titlesetup_invariant_sees_the_known_transitions():
     """Guard against the guard: a scanner that finds nothing passes vacuously.
 
