@@ -26,9 +26,8 @@
  * their slot holds MM's own RI_JUNK (junk filled there, or the check skipped or
  * excluded). Each of the two hooks keeps its own expression (JunkName::Textbox):
  * the Bomb Shop's is main's, byte for byte, and the bank sign's is this tree's
- * form of upstream's (ShopOfferedItemName over the one-argument GetItemName,
- * not upstream's three-argument call), so neither textbox claims upstream's
- * bytes, and GetItemName runs, and draws, as the hook draws. The resolver names
+ * single-exe form (ShopOfferedItemName over GetItemName(item)); in both,
+ * GetItemName runs, and draws, as the hook draws. The resolver names
  * that item "Junk" (JunkName::Plain), so the tracker reads the same text
  * without the frame's suffix. A slot whose OoT item crossed also holds RI_JUNK,
  * as a cover: both forms name the OoT item there, and the resolver never asks
@@ -87,7 +86,7 @@ enum class JunkName : uint8_t {
     // GetItemName's "Junk (<junk item>)", the suffix drawn by
     // Rando::CurrentJunkItem from MM's global stream: the Bomb Shop and bank
     // sign hooks' form, each hook's own expression call for call (the Bomb
-    // Shop's main's, the bank sign's this tree's form of it).
+    // Shop's is main's; the bank sign's is this tree's single-exe form).
     Textbox,
 };
 

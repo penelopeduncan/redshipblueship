@@ -10,17 +10,17 @@
  * message with FixedText below over MM's live save, and the combined tracker's
  * resolver calls the same FixedText over whichever MM save it reads (the live
  * one while MM is played, the frozen MM half otherwise). The texts are
- * upstream's, moved here verbatim
- * (each hook keeps upstream's own expression under its #else, but for the bank
- * sign, whose #else calls this tree's two-argument GetItemName(item, true) where
- * upstream calls GetItemName(item, true, randoCheckId)); the item-location
- * hints fill their location through Rando::HintArea::ReplaceItemLocation's
- * table-taking form, which the live form now calls too. One name differs on
- * purpose: MM's own junk padding in the Bomb Shop's line and the bank sign's,
- * which the textbox suffixes with a junk item drawn from MM's global stream and
- * the resolver does not (HintSources.h, JunkName). The two #1754 texts (the
- * engraving, the bank sign) are this tree's form, not upstream's verbatim
- * (MM_HintSources_TestLegacyFixedText).
+ * upstream's, moved here verbatim (each hook keeps upstream's own expression
+ * under its #else), with two exceptions, the #1754 hooks, whose #else branches
+ * are this tree's forms: the engraving's fills an area through
+ * RANDO_HINT_PREPOS and ReplaceItemLocation, and the bank sign's calls this
+ * tree's GetItemName(item, true), where upstream also passes the check id. The
+ * item-location hints fill their location through
+ * Rando::HintArea::ReplaceItemLocation's table-taking form, which the live form
+ * now calls too. One name differs on purpose: MM's own junk padding in the Bomb
+ * Shop's line and the bank sign's, which the textbox suffixes with a junk item
+ * drawn from MM's global stream and the resolver does not (HintSources.h,
+ * JunkName).
  *
  * WHERE A SOURCE IS LISTED (the pane groups by it). A gossip stone: its scene's
  * area (Rando::HintArea::SceneArea; the gossip grottos are Termina Field's). A
@@ -318,8 +318,8 @@ const char* RemainsBoss(uint16_t source) {
     }
 }
 
-/** Upstream's message for fixed source `source` over `checks` (the hook's own
- *  text, moved here; each hook's #else keeps upstream's expression). `junkName`
+/** The message for fixed source `source` over `checks` (the hook's own text,
+ *  moved here; the file header says which are upstream's verbatim). `junkName`
  *  matters to the Bomb Shop's line and the bank sign's only (BombShopItemPhrase,
  *  BankItemPhrase). */
 std::string BuildFixedText(const MmFixedSource& row, const RandoSaveCheck* checks,
@@ -836,13 +836,12 @@ extern "C" void MM_HintSources_TestStreamReplica(uint64_t seed, int32_t max, int
  * hook's text (FixedText, JunkName::Textbox) to it, so the move changed no byte,
  * and the resolver's to it but for the one junk suffix (HintSources.h). Draws as
  * the hook drew. The two #1754 cases (the Song of Soaring engraving and the bank
- * sign) are not copied from any #else: no main hook built them, so they are this
- * tree's form (the live ReplaceItemLocation; ShopOfferedItemName over the
- * one-argument GetItemName, where the bank hook's #else calls this tree's
- * GetItemName(item, true) and upstream calls GetItemName(item, true,
- * randoCheckId)). Their parity with the hook proves the live form and
- * the table form agree, not byte parity with upstream. Returns the full length,
- * or -1 for a source that is not fixed.
+ * sign) had no hook on main. The engraving's case equals EnTimeTag.cpp's #else;
+ * the bank sign's adds ShopOfferedItemName to its #else's GetItemName(item,
+ * true). Both are this tree's forms, not upstream's (file header), so their
+ * parity with the hook proves the live form and the table form agree, not byte
+ * parity with upstream. Returns the full length, or -1 for a source that is not
+ * fixed.
  */
 extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, int cap) {
     if (out == nullptr || cap <= 0 || FixedSourceOf(source) == nullptr) {
