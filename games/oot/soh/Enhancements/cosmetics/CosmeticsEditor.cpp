@@ -576,7 +576,7 @@ extern "C" void CosmeticsEditor_ReapplyDeferredGfxPatches(void) {
 
 int hue = 0;
 
-// Runs every frame to update rainbow hue, a potential future optimization is to only run this a once or twice a second
+// Runs every frame to update rainbow hue, a potential future optimization is to only run this once or twice a second
 // and increase the speed of the rainbow hue rotation.
 void CosmeticsUpdateTick() {
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -1583,7 +1583,7 @@ void Table_InitHeader(bool has_header = true) {
     }
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding(); // This is to adjust Vertical pos of item in a cell to be normlized.
+    ImGui::AlignTextToFramePadding(); // This is to adjust Vertical pos of item in a cell to be normalized.
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() - 2);
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 60);
 }

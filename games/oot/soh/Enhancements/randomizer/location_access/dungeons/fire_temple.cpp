@@ -1007,7 +1007,7 @@ void RegionTable_Init_FireTemple() {
         Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_MAIN,          []{return true;}),
         Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_MIDDLE,        []{return logic->CanUse(RG_SONG_OF_TIME) || logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && (logic->IsAdult || logic->CanJumpslash()) && logic->TakeDamage());}),
         Entrance(RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR, []{return true;}),
-        //This one might be a bit too hard for base logic, but is only relevent in doorsanity or with RT_FIRE_MQ_MAZE_HOVERS
+        //This one might be a bit too hard for base logic, but is only relevant in doorsanity or with RT_FIRE_MQ_MAZE_HOVERS
         Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_SWITCH,        []{return (((logic->CanUse(RG_SONG_OF_TIME) && logic->CanUse(RG_HOVER_BOOTS)) || logic->BunnyHovers()) && (logic->TakeDamage() || logic->CanJumpslash())) || (logic->CanUse(RG_SONG_OF_TIME) && logic->BunnyHovers());}),
     });
 
@@ -1118,7 +1118,7 @@ void RegionTable_Init_FireTemple() {
     }, {
         //Exits
         //The dropdown here is unusual in that it hits 1 of 3 locations: RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_LOWER, RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR, and RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_SWITCH
-        //Using this dropdown is in N64 logic elsewhere, but not here, probably because it requires good foreknowlege to determine where to land
+        //Using this dropdown is in N64 logic elsewhere, but not here, probably because it requires good foreknowledge to determine where to land
         Entrance(RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_LOWER,      []{return logic->TakeDamage();}),
         Entrance(RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR, []{return logic->TakeDamage();}),
         Entrance(RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_SWITCH,     []{return logic->TakeDamage();}),
