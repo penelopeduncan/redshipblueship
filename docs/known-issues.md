@@ -80,6 +80,13 @@ Everything below passed the automated gates. None of it has been checked by a pe
   Textures off, look at the held Deku Stick, then press Apply on a curated Enhancements preset (Settings > Presets);
   this replaces all your enhancement, cheat and randomizer-enhancement settings. The stick should then look as it does
   after you tick the row by hand, without a restart. How easy the difference is to see is not known.
+- Ocarina of Time model options changed while Majora's Mask runs (issue #1829). Tests drive the bookkeeping only: four
+  options' patch code is skipped and Mirrored World's runs with no models loaded. No run clicks a row or applies a
+  preset; integration rows that start in Majora's Mask and switch to Ocarina of Time run the new code but check no
+  model. To try it: in Ocarina of Time, as child Link, set Mirrored World (Enhancements > Extra Modes) to Always and
+  enter any area, so the world is mirrored. Enter the Happy Mask Shop in the Market to go to Majora's Mask and set
+  Mirrored World to Disabled there; Majora's Mask unmirrors at once. Walk back into the Clock Tower: Ocarina of Time
+  should not be mirrored. Before the fix it stayed mirrored.
 
 ### New in v0.5.2-alpha
 
