@@ -11,7 +11,9 @@
  * resolver calls the same FixedText over whichever MM save it reads (the live
  * one while MM is played, the frozen MM half otherwise). The texts are
  * upstream's, moved here verbatim
- * (each hook keeps upstream's own expression under its #else); the item-location
+ * (each hook keeps upstream's own expression under its #else, but for the bank
+ * sign, whose #else calls this tree's two-argument GetItemName(item, true) where
+ * upstream calls GetItemName(item, true, randoCheckId)); the item-location
  * hints fill their location through Rando::HintArea::ReplaceItemLocation's
  * table-taking form, which the live form now calls too. One name differs on
  * purpose: MM's own junk padding in the Bomb Shop's line and the bank sign's,
@@ -836,8 +838,9 @@ extern "C" void MM_HintSources_TestStreamReplica(uint64_t seed, int32_t max, int
  * the hook drew. The two #1754 cases (the Song of Soaring engraving and the bank
  * sign) are not copied from any #else: no main hook built them, so they are this
  * tree's form (the live ReplaceItemLocation; ShopOfferedItemName over the
- * one-argument GetItemName, where the bank hook's #else calls upstream's
- * GetItemName(item, true)). Their parity with the hook proves the live form and
+ * one-argument GetItemName, where the bank hook's #else calls this tree's
+ * GetItemName(item, true) and upstream calls GetItemName(item, true,
+ * randoCheckId)). Their parity with the hook proves the live form and
  * the table form agree, not byte parity with upstream. Returns the full length,
  * or -1 for a source that is not fixed.
  */

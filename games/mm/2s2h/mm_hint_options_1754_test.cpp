@@ -28,9 +28,13 @@
  *      (e) 0x1C14 with bank check obtained: load true, bit stays clear.
  *      (f) Bank option set to 0 and BankSignHint() re-run: 0x1C14 leaves load true.
  *
- * ENTRY. No paired foreign placement may be active (Combo_ForeignPairingActive):
- * the bank text and the Soaring location consult the crossing store, so a pairing
- * left armed by an earlier row would change what legs 3 and 4 read.
+ * ENTRY. The tables legs 3 and 4 read must be empty: the pinned foreign
+ * placements (Combo_CountForeignPlacements; the bank text reaches them through
+ * Combo_GetForeignPlacementForCheck) and both halves of the crossing store
+ * (Combo_Crossings_Count: GAME_MM is that lookup's fallback, GAME_OOT is where the
+ * Soaring location looks for an MM item hosted in OoT). Neither read is gated on
+ * the pairing flags, so the assert checks the tables, not
+ * Combo_ForeignPairingActive.
  *
  * CLEANUP. Restores SaveContext, MM_gPlayState, the bank threshold key, both option
  * CVars, and both read bits, then re-runs InitEnTimeTagBehavior() and BankSignHint()
@@ -67,6 +71,7 @@ extern "C" int MM_HintOptions1754_RunHeadless(void) {
 #include "combo_hint_view.h"
 #include "combo_mm_options_view.h"
 #include "context.h"
+#include "crossing_store.h"
 #include "foreign_items.h"
 #include "game.h"
 
@@ -343,9 +348,11 @@ extern "C" int MM_HintOptions1754_RunHeadless(void) {
     auto ctx = Ship::Context::GetInstance();
     HO1754_ASSERT(ctx != nullptr, 1, "Ship::Context singleton missing - run the shared bring-up first");
     HO1754_ASSERT(ctx->GetConsoleVariables() != nullptr, 1, "ConsoleVariables missing - the legs read CVars");
-    HO1754_ASSERT(!Combo_ForeignPairingActive(), 2,
-                  "a paired foreign placement is active at entry - an earlier row left a pairing armed, and the "
-                  "bank and Soaring legs would read its crossings");
+    HO1754_ASSERT(Combo_CountForeignPlacements() == 0 && Combo_Crossings_Count(GAME_MM) == 0 &&
+                      Combo_Crossings_Count(GAME_OOT) == 0,
+                  2,
+                  "foreign placements or crossings are present at entry - an earlier row left them, and the bank "
+                  "and Soaring legs would read them");
 
     auto saved = std::make_unique<uint8_t[]>(sizeof(gSaveContext));
     std::memcpy(saved.get(), &gSaveContext, sizeof(gSaveContext));
