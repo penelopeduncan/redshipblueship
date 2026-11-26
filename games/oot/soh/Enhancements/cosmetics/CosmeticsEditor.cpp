@@ -22,6 +22,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "context.h" // src/common: Context_GetCurrentGame (#1040 R1)
 #include "CosmeticsEditorMm.h" // W6-COS-A (#1239): Majora's Mask's rows
+#include "OwedGfxPatches.h"    // #1829: OoT_GfxPatches_ApplyOwed
 #endif
 
 extern "C" {
@@ -581,6 +582,7 @@ void CosmeticsUpdateTick() {
 #ifdef RSBS_SINGLE_EXECUTABLE
     CosmeticsEditor_ReapplyDeferredGfxPatches(); // #1040 R1: a pass owed while MM ran
     OoT_AuthenticGfxPatches_ApplyOwed();         // #1817: Fix Out of Bounds Textures changed while MM ran
+    OoT_GfxPatches_ApplyOwed();                  // #1829: OoT gfx registrars changed while MM ran
 #endif
     int index = 0;
     float rainbowSpeed = CVarGetFloat(CVAR_COSMETIC("RainbowSpeed"), 0.6f);
@@ -2638,7 +2640,13 @@ void RegisterOnGameFrameUpdateHook() {
 void CosmeticsEditorWindow::InitElement() {
     Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
     ApplyOrResetCustomGfxPatches();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1829: no game is current yet at boot, and on an MM-first boot the cache owner is MM's, so the pass is owed and
+    // paid on OoT's first frame under OoT's owner.
+    (void)OoT_AuthenticGfxPatches_Reapply();
+#else
     ApplyAuthenticGfxPatches();
+#endif
 }
 
 void CosmeticsEditor_RandomizeAll() {

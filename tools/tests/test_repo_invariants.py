@@ -733,6 +733,63 @@ def test_oot_authentic_gfx_patches_follow_bulk_writes_under_oot_owner():
     )
 
 
+# (file, registrar, id, needsPlay): the four that read OoT's save wait for a play state; Mirrored World does not.
+OOT_OWED_GFX_REGISTRARS = (
+    ("games/oot/soh/Enhancements/Fixes/HammerHandFix.cpp", "RegisterHammerHandFix", "HammerHandFix", "true"),
+    ("games/oot/soh/Enhancements/Graphics/AgeDependentEquipment.cpp", "RegisterAgeDependentEquipmentHook",
+     "AgeDependentEquipment", "true"),
+    ("games/oot/soh/Enhancements/Graphics/ToTMedallions.cpp", "RegisterToTMedallions", "ToTMedallions", "true"),
+    ("games/oot/soh/Enhancements/randomizer/ColoredMapsAndCompasses.cpp", "RegisterColoredMapsAndCompasses",
+     "ColoredMapsAndCompasses", "true"),
+    ("games/oot/soh/Enhancements/ExtraModes/MirroredWorld.cpp", "RegisterMirroredWorld", "MirroredWorld", "false"),
+)
+
+
+def test_oot_gfx_registrars_owe_their_passes_while_mm_runs():
+    """#1829: OoT's display-list registrars patch under OoT's resource cache owner only.
+
+    Fix Hammer Hand, Equipment Always Visible, Temple of Time medallion colors, Colored Maps and Compasses and
+    Mirrored World patch from their registrars, which a row click, a preset or a dropped config runs while MM runs,
+    under MM's owner. Each registrar now goes through OoT_GfxPatches_RunOrOwe, OoT's frame tick pays what is owed, and
+    the Cosmetics Editor's boot pass of the authentic patches goes through #1817's owner-gated reapply. MMShipInitDriver
+    legs 11-15 (FAIL 20-30) drive the helper and the registrars; this lock catches a tick, an InitElement or a
+    registrar that stops calling them, which no ctest row reaches (the tick needs OoT's frame, InitElement a window).
+    """
+    cosmetics = REPO_ROOT / "games/oot/soh/Enhancements/cosmetics/CosmeticsEditor.cpp"
+    tick = _function_body(cosmetics, "CosmeticsUpdateTick")
+    assert "OoT_GfxPatches_ApplyOwed();" in tick, (
+        "#1829: CosmeticsUpdateTick must pay the OoT display-list passes owed while MM ran"
+    )
+    init = _function_body(cosmetics, "InitElement")
+    single = re.search(r"#ifdef RSBS_SINGLE_EXECUTABLE(.*?)#else", init, re.S)
+    assert single, "#1829: CosmeticsEditorWindow::InitElement lost its RSBS_SINGLE_EXECUTABLE branch"
+    assert "OoT_AuthenticGfxPatches_Reapply()" in single.group(1), (
+        "#1829: InitElement must owe the boot pass of the authentic patches through OoT_AuthenticGfxPatches_Reapply"
+    )
+    assert not re.search(r"\bApplyAuthenticGfxPatches\s*\(", single.group(1)), (
+        "#1829: InitElement patches at boot under whichever game owns the resource cache (MM's on an MM-first boot)"
+    )
+
+    for path, registrar, pass_id, needs_play in OOT_OWED_GFX_REGISTRARS:
+        body = _function_body(REPO_ROOT / path, registrar)
+        branch = re.search(r"#ifdef RSBS_SINGLE_EXECUTABLE(.*?)#else(.*?)#endif", body, re.S)
+        assert branch, f"#1829: {registrar} lost its RSBS_SINGLE_EXECUTABLE branch"
+        call = re.search(r'\bOoT_GfxPatches_RunOrOwe\(\s*"([^"]*)"\s*,\s*(\w+)\s*,\s*(true|false)\s*\)',
+                         branch.group(1))
+        assert call, f"#1829: {registrar} must run its patch pass through OoT_GfxPatches_RunOrOwe in single-exe"
+        assert call.group(1) == pass_id and call.group(3) == needs_play, (
+            f"#1829: {registrar} owes its pass as {call.group(1)!r} with needsPlay {call.group(3)}; expected "
+            f"{pass_id!r} with {needs_play}"
+        )
+        outside = body[:branch.start()] + body[branch.end():]
+        assert not re.search(r"\b%s\s*\(" % re.escape(call.group(2)), outside), (
+            f"#1829: {registrar} calls {call.group(2)} outside the owner gate"
+        )
+        assert not re.search(r"\bResourceMgr_\w*Patch\w*\s*\(", outside), (
+            f"#1829: {registrar} patches outside the owner gate"
+        )
+
+
 def test_titlesetup_invariant_sees_the_known_transitions():
     """Guard against the guard: a scanner that finds nothing passes vacuously.
 

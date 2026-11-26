@@ -95,6 +95,27 @@
  * twice (FAIL 19). The patch body is skipped once a pass is counted (no game
  * archive in this row); the counters are the observables. The running game is
  * put back and the key ends as found.
+ *
+ * LEGS 11 TO 15 (#1829): OoT's display-list registrars (Fix Hammer Hand,
+ * Equipment Always Visible, Temple of Time medallion colors, Colored Maps and
+ * Compasses, Mirrored World) patch only while OoT runs, through
+ * OoT_GfxPatches_RunOrOwe (soh/Enhancements/cosmetics/OwedGfxPatches.cpp); a
+ * change while MM runs is owed and paid on OoT's next frame, the four that read
+ * OoT's save only on a frame with a play state. FAIL 20 is the setup (nothing
+ * left owed). Leg 11: a change while MM runs makes no pass and owes one
+ * (FAIL 21). Leg 12: the debt is not paid under MM even with a play state
+ * (FAIL 22; leg 14b checks the same for a pass needing none), a save-reading
+ * debt waits for a play state (FAIL 23), and it is paid once under OoT and not
+ * twice (FAIL 24). Leg 13: a change while OoT runs patches at once and owes
+ * nothing, and one at boot (no game current) is owed (FAIL 25). Leg 14: two
+ * flips while MM runs owe and pay one pass (FAIL 26); a pass reads its key's
+ * value at payment time (FAIL 27). Leg 15: Mirrored World turned off while MM
+ * ran is cleared by the payment with no play state (FAIL 28), so is a mirror
+ * key a shutdown left saved (FAIL 29), and another mode is left to OnSceneInit
+ * (FAIL 30). The four non-mirror registrars are driven through ShipInit::Init,
+ * the entry point a row click and InitAll share, with their bodies skipped (no
+ * archive, no OTRGlobals::Instance); the mirror legs run its real body, which
+ * here finds no patch recorded and loads nothing. Everything ends as found.
  */
 
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -106,6 +127,8 @@
 #include <cstring>
 
 #include "context.h" // src/common: Context_GetCurrentGame, Context_SetCurrentGame (#1817)
+#include "soh/Enhancements/game-interactor/GameInteractor.h" // #1829: COND_HOOK needs GameInteractor::Instance
+#include "soh/Enhancements/enhancementTypes.h"               // #1829: MIRRORED_WORLD_*
 
 // MM-side probe support (games/mm/2s2h/mm_shipinit_driver_test.cpp) and the
 // production bridge's non-inserting map query
@@ -127,6 +150,19 @@ int OoT_AuthenticGfxPatchesTest_Requests(void);
 int OoT_AuthenticGfxPatchesTest_Passes(void);
 int OoT_AuthenticGfxPatchesTest_Owed(void);
 void OoT_AuthenticGfxPatchesTest_SetBodySkipped(int skip);
+// #1829: OoT's owed display-list passes and their seams (games/oot/soh/Enhancements/cosmetics/OwedGfxPatches.cpp,
+// games/oot/soh/Enhancements/ExtraModes/MirroredWorld.cpp).
+int OoT_GfxPatches_ApplyOwed(void);
+int OoT_GfxPatchesTest_Passes(const char* id);
+int OoT_GfxPatchesTest_Owed(const char* id);
+int OoT_GfxPatchesTest_OwedCount(void);
+void OoT_GfxPatchesTest_SetBodySkipped(int skip);
+void OoT_GfxPatchesTest_RunOrOweProbe(const char* key);
+int OoT_GfxPatchesTest_ProbeSeen(void);
+void OoT_MirroredWorldTest_RunRegistrar(void);
+void OoT_MirroredWorldTest_SetPrevMirrored(int prev);
+int OoT_MirroredWorldTest_PrevMirrored(void);
+extern PlayState* OoT_gPlayState;
 }
 
 namespace {
@@ -158,6 +194,78 @@ struct ShipInitDriverOoTGfxRestore {
             CVarClear(kFixTexturesOobKey);
         }
         OoT_AuthenticGfxPatchesTest_SetBodySkipped(0);
+    }
+};
+
+// #1829: the four save-reading registrars, each by the key a row click drives and the id its pass is owed under.
+struct ShipInitDriverOwedGfxRow {
+    const char* key;
+    const char* id;
+};
+constexpr ShipInitDriverOwedGfxRow kOwedGfxRows[] = {
+    { "gEnhancements.FixHammerHand", "HammerHandFix" },
+    { "gEnhancements.EquipmentAlwaysVisible", "AgeDependentEquipment" },
+    { "gEnhancements.ToTMedallionsColors", "ToTMedallions" },
+    { "gRandoEnhancements.ColoredMapsAndCompasses", "ColoredMapsAndCompasses" },
+};
+constexpr const char* kMirroredWorldKey = "gEnhancements.MirroredWorld";
+constexpr const char* kMirroredWorldModeKey = "gEnhancements.MirroredWorldMode";
+constexpr const char* kOwedGfxProbeKey = "gRsbsTest.OwedGfxProbe"; // no registrar reads it
+
+// A play state for the payments of save-reading passes. Their bodies are skipped, so nothing dereferences it.
+PlayState sShipInitDriverDummyPlay;
+
+int ShipInitDriver_PayOwedInPlay() {
+    PlayState* const was = OoT_gPlayState;
+    OoT_gPlayState = &sShipInitDriverDummyPlay;
+    const int paid = OoT_GfxPatches_ApplyOwed();
+    OoT_gPlayState = was;
+    return paid;
+}
+
+struct ShipInitDriverSavedKey {
+    const char* key;
+    bool stored;
+    int32_t value;
+    void Put() const {
+        if (stored) {
+            CVarSetInteger(key, value);
+        } else {
+            CVarClear(key);
+        }
+    }
+};
+
+ShipInitDriverSavedKey ShipInitDriver_SaveKey(const char* key) {
+    return { key, CVarExists(key), CVarGetInteger(key, 0) };
+}
+
+// #1829: puts the running game, the five registrars' keys, their hooks, the mirror state and the play state back.
+struct ShipInitDriverOwedGfxRestore {
+    GameId game;
+    PlayState* play;
+    int prevMirrored;
+    ShipInitDriverSavedKey keys[4];
+    ShipInitDriverSavedKey mirror;
+    ShipInitDriverSavedKey mode;
+    ShipInitDriverSavedKey probe;
+    ~ShipInitDriverOwedGfxRestore() {
+        OoT_gPlayState = nullptr;
+        Context_SetCurrentGame(GAME_OOT);
+        OoT_GfxPatchesTest_SetBodySkipped(1);
+        for (const ShipInitDriverSavedKey& k : keys) {
+            k.Put();
+            ShipInit::Init(k.key); // re-arms the hook for the value found, makes no patch
+        }
+        mirror.Put();
+        mode.Put();
+        probe.Put();
+        OoT_MirroredWorldTest_RunRegistrar(); // the mode's hook as found
+        OoT_MirroredWorldTest_SetPrevMirrored(prevMirrored);
+        (void)ShipInitDriver_PayOwedInPlay(); // nothing should be owed; leave nothing behind for a later row
+        OoT_GfxPatchesTest_SetBodySkipped(0);
+        OoT_gPlayState = play;
+        Context_SetCurrentGame(game);
     }
 };
 
@@ -444,10 +552,194 @@ extern "C" int OoT_ShipInitMMDriver_RunHeadless(void) {
         }
     }
 
+    // ---- legs 11 to 15 (#1829): OoT's display-list registrars patch under OoT's owner only ----
+    // A row click, a preset or a dropped config while MM runs reaches these registrars through ShipInit::Init (InitAll
+    // is Init("*"), and each is also registered under "*"), and ResourceMgr_PatchGfxByName works on the current cache
+    // owner's copy, which is MM's then. The bodies are skipped for the four save readers (no archive, no
+    // OTRGlobals::Instance): the counters and the debt are the observables. The mirror legs run its real body.
+    {
+        if (GameInteractor::Instance == nullptr) {
+            GameInteractor::Instance = new GameInteractor(); // kept alive, like every other *::Instance singleton
+        }
+        ShipInitDriverOwedGfxRestore restore{
+            Context_GetCurrentGame(),
+            OoT_gPlayState,
+            OoT_MirroredWorldTest_PrevMirrored(),
+            { ShipInitDriver_SaveKey(kOwedGfxRows[0].key), ShipInitDriver_SaveKey(kOwedGfxRows[1].key),
+              ShipInitDriver_SaveKey(kOwedGfxRows[2].key), ShipInitDriver_SaveKey(kOwedGfxRows[3].key) },
+            ShipInitDriver_SaveKey(kMirroredWorldKey),
+            ShipInitDriver_SaveKey(kMirroredWorldModeKey),
+            ShipInitDriver_SaveKey(kOwedGfxProbeKey)
+        };
+        OoT_gPlayState = nullptr;
+        OoT_GfxPatchesTest_SetBodySkipped(1);
+        Context_SetCurrentGame(GAME_OOT);
+        (void)ShipInitDriver_PayOwedInPlay(); // what this process's boot or an earlier row left owed
+        if (OoT_GfxPatchesTest_OwedCount() != 0) {
+            return Fail(20, "setup: OoT's owed gfx passes were not all paid while OoT ran with a play state (#1829)");
+        }
+
+        for (const ShipInitDriverOwedGfxRow& row : kOwedGfxRows) {
+            // Leg 11: a change while MM runs makes no pass and owes one.
+            Context_SetCurrentGame(GAME_MM);
+            int passes = OoT_GfxPatchesTest_Passes(row.id);
+            CVarSetInteger(row.key, 1);
+            ShipInit::Init(row.key);
+            if (OoT_GfxPatchesTest_Passes(row.id) != passes || OoT_GfxPatchesTest_Owed(row.id) != 1) {
+                printf("[TEST] %s: passes +%d, owed %d\n", row.id, OoT_GfxPatchesTest_Passes(row.id) - passes,
+                       OoT_GfxPatchesTest_Owed(row.id));
+                return Fail(21, "an OoT display-list registrar changed while MM ran patched (under MM's resource "
+                                "cache owner) or did not owe the pass to OoT (#1829)");
+            }
+
+            // Leg 12: not paid under MM; a save-reading debt waits for a play state; paid once under OoT, not twice.
+            // Paid with a play state, so only the payment's running-game check can refuse it (the play gate would
+            // hide that check's removal otherwise).
+            const int paidUnderMm = ShipInitDriver_PayOwedInPlay();
+            const int owedAfterMm = OoT_GfxPatchesTest_Owed(row.id);
+            Context_SetCurrentGame(GAME_OOT);
+            const int paidWithoutPlay = OoT_GfxPatches_ApplyOwed(); // OoT_gPlayState is null: OoT's Opening frame
+            const int passesWithoutPlay = OoT_GfxPatchesTest_Passes(row.id);
+            const int owedWithoutPlay = OoT_GfxPatchesTest_Owed(row.id);
+            const int paidInPlay = ShipInitDriver_PayOwedInPlay();
+            const int passesInPlay = OoT_GfxPatchesTest_Passes(row.id);
+            const int owedInPlay = OoT_GfxPatchesTest_Owed(row.id);
+            const int paidAgain = ShipInitDriver_PayOwedInPlay();
+            if (paidUnderMm != 0 || owedAfterMm != 1) {
+                printf("[TEST] %s: paid under MM %d (owed %d)\n", row.id, paidUnderMm, owedAfterMm);
+                return Fail(22, "an OoT display-list pass owed while MM ran was paid while MM still ran, under MM's "
+                                "resource cache owner (#1829)");
+            }
+            if (paidWithoutPlay != 0 || passesWithoutPlay != passes || owedWithoutPlay != 1) {
+                printf("[TEST] %s: paid with no play state %d (passes +%d, owed %d)\n", row.id, paidWithoutPlay,
+                       passesWithoutPlay - passes, owedWithoutPlay);
+                return Fail(23, "an OoT display-list pass that reads OoT's save was paid with no play state, where "
+                                "gSaveContext is still the Opening's debug save (#1829)");
+            }
+            if (paidInPlay != 1 || passesInPlay != passes + 1 || owedInPlay != 0 || paidAgain != 0 ||
+                OoT_GfxPatchesTest_Passes(row.id) != passes + 1) {
+                printf("[TEST] %s: paid in play %d (passes +%d, owed %d), again %d\n", row.id, paidInPlay,
+                       passesInPlay - passes, owedInPlay, paidAgain);
+                return Fail(24, "an OoT display-list pass owed while MM ran was lost or paid twice once OoT ran in "
+                                "play (#1829)");
+            }
+
+            // Leg 13: a change while OoT runs patches at once and owes nothing; one at boot (no game current) is owed.
+            passes = OoT_GfxPatchesTest_Passes(row.id);
+            CVarSetInteger(row.key, 0);
+            ShipInit::Init(row.key);
+            const int passesUnderOoT = OoT_GfxPatchesTest_Passes(row.id);
+            const int owedUnderOoT = OoT_GfxPatchesTest_Owed(row.id);
+            Context_SetCurrentGame(GAME_NONE);
+            ShipInit::Init(row.key);
+            const int owedAtBoot = OoT_GfxPatchesTest_Owed(row.id);
+            Context_SetCurrentGame(GAME_OOT);
+            (void)ShipInitDriver_PayOwedInPlay();
+            if (passesUnderOoT != passes + 1 || owedUnderOoT != 0 || owedAtBoot != 1) {
+                printf("[TEST] %s: under OoT passes +%d (owed %d); at boot owed %d\n", row.id, passesUnderOoT - passes,
+                       owedUnderOoT, owedAtBoot);
+                return Fail(25, "an OoT display-list registrar did not patch at once while OoT ran, or patched at "
+                                "boot before any game was current, where an MM-first boot's cache owner is MM's "
+                                "(#1829)");
+            }
+
+            // Leg 14: two flips while MM runs owe one pass and pay it once.
+            Context_SetCurrentGame(GAME_MM);
+            passes = OoT_GfxPatchesTest_Passes(row.id);
+            CVarSetInteger(row.key, 1);
+            ShipInit::Init(row.key);
+            CVarSetInteger(row.key, 0);
+            ShipInit::Init(row.key);
+            const int owedCount = OoT_GfxPatchesTest_OwedCount();
+            Context_SetCurrentGame(GAME_OOT);
+            const int paidFlips = ShipInitDriver_PayOwedInPlay();
+            if (owedCount != 1 || paidFlips != 1 || OoT_GfxPatchesTest_Passes(row.id) != passes + 1) {
+                printf("[TEST] %s: owed %d entries, paid %d (passes +%d)\n", row.id, owedCount, paidFlips,
+                       OoT_GfxPatchesTest_Passes(row.id) - passes);
+                return Fail(26, "two changes to an OoT display-list registrar while MM ran owed or paid more than "
+                                "one pass (#1829)");
+            }
+        }
+
+        // Leg 14b: the payment reads the key's value when it pays, not when the pass was asked for (a probe pass that
+        // needs no play state, run with its body: it only reads its key).
+        OoT_GfxPatchesTest_SetBodySkipped(0);
+        Context_SetCurrentGame(GAME_MM);
+        CVarSetInteger(kOwedGfxProbeKey, 1);
+        OoT_GfxPatchesTest_RunOrOweProbe(kOwedGfxProbeKey);
+        CVarSetInteger(kOwedGfxProbeKey, 0);
+        const int paidProbeUnderMm = OoT_GfxPatches_ApplyOwed(); // needs no play state: only the game check refuses
+        if (paidProbeUnderMm != 0 || OoT_GfxPatchesTest_ProbeSeen() != -1) {
+            printf("[TEST] probe paid under MM %d, saw %d\n", paidProbeUnderMm, OoT_GfxPatchesTest_ProbeSeen());
+            return Fail(22, "an owed OoT display-list pass that needs no play state was paid while MM still ran, "
+                            "under MM's resource cache owner (#1829)");
+        }
+        Context_SetCurrentGame(GAME_OOT);
+        const int paidProbe = OoT_GfxPatches_ApplyOwed(); // no play state
+        if (paidProbe != 1 || OoT_GfxPatchesTest_ProbeSeen() != 0) {
+            printf("[TEST] probe paid %d, saw %d\n", paidProbe, OoT_GfxPatchesTest_ProbeSeen());
+            return Fail(27, "an owed OoT display-list pass that needs no play state was not paid on OoT's first "
+                            "frame, or did not read its key's value at payment time (#1829)");
+        }
+
+        // Leg 15: Mirrored World turned off while MM ran. Its registrar patches only in a scene (play state), and
+        // its hook is off once the mode is, so the payment's own off branch must clear the mirror and unpatch.
+        // Headless the unpatches find no record and load nothing (authenticGfxPatches.cpp).
+        OoT_MirroredWorldTest_SetPrevMirrored(1);
+        CVarSetInteger(kMirroredWorldKey, 1);
+        CVarClear(kMirroredWorldModeKey);
+        Context_SetCurrentGame(GAME_MM);
+        OoT_MirroredWorldTest_RunRegistrar();
+        const int mirrorUnderMm = CVarGetInteger(kMirroredWorldKey, 0);
+        const int mirrorOwed = OoT_GfxPatchesTest_Owed("MirroredWorld");
+        Context_SetCurrentGame(GAME_OOT);
+        int paidMirror = OoT_GfxPatches_ApplyOwed(); // no play state: OoT's first frame back
+        if (mirrorUnderMm != 1 || mirrorOwed != 1 || paidMirror != 1 || CVarGetInteger(kMirroredWorldKey, 0) != 0 ||
+            OoT_MirroredWorldTest_PrevMirrored() != 0) {
+            printf("[TEST] mirror under MM %d (owed %d); paid %d, mirror %d, prev %d\n", mirrorUnderMm, mirrorOwed,
+                   paidMirror, CVarGetInteger(kMirroredWorldKey, 0), OoT_MirroredWorldTest_PrevMirrored());
+            return Fail(28, "Mirrored World turned off while MM ran was not owed, or OoT's first frame back did not "
+                            "clear the mirror: OoT's world stays mirrored (#1829)");
+        }
+
+        // Leg 15b: a mirror key a shutdown left saved with the pass still owed (the next boot starts unmirrored).
+        OoT_MirroredWorldTest_SetPrevMirrored(0);
+        CVarSetInteger(kMirroredWorldKey, 1);
+        CVarClear(kMirroredWorldModeKey);
+        Context_SetCurrentGame(GAME_MM);
+        OoT_MirroredWorldTest_RunRegistrar();
+        Context_SetCurrentGame(GAME_OOT);
+        paidMirror = OoT_GfxPatches_ApplyOwed();
+        if (paidMirror != 1 || CVarGetInteger(kMirroredWorldKey, 0) != 0 || OoT_MirroredWorldTest_PrevMirrored() != 0) {
+            printf("[TEST] restart: paid %d, mirror %d, prev %d\n", paidMirror, CVarGetInteger(kMirroredWorldKey, 0),
+                   OoT_MirroredWorldTest_PrevMirrored());
+            return Fail(29, "a saved mirror key with Mirrored World off was not cleared by the owed pass: OoT's world "
+                            "stays mirrored across a restart (#1829)");
+        }
+
+        // Leg 15c: the off branch is for mode Off only. Under a per-scene mode the first scene decides, as upstream's
+        // OnSceneInit does, so a saved mirror key is left to it. (Dungeons: no scene is evaluated without the branch,
+        // and with it SCENE_ID_MAX is no dungeon, so the branch would clear the key, which is the observable.)
+        OoT_MirroredWorldTest_SetPrevMirrored(0);
+        CVarSetInteger(kMirroredWorldKey, 1);
+        CVarSetInteger(kMirroredWorldModeKey, MIRRORED_WORLD_DUNGEONS_ALL);
+        Context_SetCurrentGame(GAME_MM);
+        OoT_MirroredWorldTest_RunRegistrar();
+        Context_SetCurrentGame(GAME_OOT);
+        paidMirror = OoT_GfxPatches_ApplyOwed();
+        if (paidMirror != 1 || CVarGetInteger(kMirroredWorldKey, 0) != 1 || OoT_MirroredWorldTest_PrevMirrored() != 0) {
+            printf("[TEST] other mode: paid %d, mirror %d, prev %d\n", paidMirror, CVarGetInteger(kMirroredWorldKey, 0),
+                   OoT_MirroredWorldTest_PrevMirrored());
+            return Fail(30, "the owed Mirrored World pass changed the mirror with a mode other than Off and no scene "
+                            "(#1829)");
+        }
+    }
+
     printf("[TEST] PASS: a CVar change on the unified menu path re-arms MM's registrars (%d on the converged key), "
            "while the '*' and 'IS_RANDO' pseudo-paths stay MM-driven; the real Autosave registrar (%d on its "
            "converged key) re-arms idempotently too (#614); a bulk CVar write re-drives exactly the keys it changed "
-           "(#1811) and reapplies OoT's authentic gfx patches under OoT's owner only (#1817)\n",
+           "(#1811) and reapplies OoT's authentic gfx patches under OoT's owner only (#1817); OoT's display-list "
+           "registrars changed while MM runs are owed to OoT's next frame (#1829)\n",
            convergedRegistrars, autosaveRegistrars);
     return 0;
 }
