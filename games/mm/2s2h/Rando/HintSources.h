@@ -24,12 +24,15 @@
  * against MM's live save, cached for 20 frames. The only hint texts that can name
  * it are the Bomb Shop's next-stock line and the West Clock Town bank sign, when
  * their slot holds MM's own RI_JUNK (junk filled there, or the check skipped or
- * excluded). Their hooks keep upstream's expression (JunkName::Textbox) so the
- * textbox and the stream match upstream byte for byte; the resolver names that
- * item "Junk" (JunkName::Plain), so the tracker reads the same text without the
- * frame's suffix. A slot whose OoT item crossed also holds RI_JUNK, as a cover:
- * both forms name the OoT item there, and the resolver never asks GetItemName
- * about the cover.
+ * excluded). Each of the two hooks keeps its own expression (JunkName::Textbox):
+ * the Bomb Shop's is main's, byte for byte, and the bank sign's is this tree's
+ * form of upstream's (ShopOfferedItemName over the one-argument GetItemName,
+ * not upstream's three-argument call), so neither textbox claims upstream's
+ * bytes, and GetItemName runs, and draws, as the hook draws. The resolver names
+ * that item "Junk" (JunkName::Plain), so the tracker reads the same text
+ * without the frame's suffix. A slot whose OoT item crossed also holds RI_JUNK,
+ * as a cover: both forms name the OoT item there, and the resolver never asks
+ * GetItemName about the cover.
  *
  * THE READ HOOK. MarkRead is called by each hook as it shows a source's hint:
  * it sets the source's bit in the combo save record (ComboContext.mmHintsRead)
@@ -83,7 +86,8 @@ enum class JunkName : uint8_t {
     Plain,
     // GetItemName's "Junk (<junk item>)", the suffix drawn by
     // Rando::CurrentJunkItem from MM's global stream: the Bomb Shop and bank
-    // sign hooks' form, upstream's expression call for call.
+    // sign hooks' form, each hook's own expression call for call (the Bomb
+    // Shop's main's, the bank sign's this tree's form of it).
     Textbox,
 };
 
@@ -93,8 +97,11 @@ enum class JunkName : uint8_t {
  * textbox hook builds it (before colours and line breaks), and, when `out` is
  * non-NULL, the resolution (type FIXED, the item(s) and check(s) it names, the
  * areas its text names, the text). "" for a source that is not fixed. With
- * `junkName` Plain (the default) it is pure; Textbox is the Bomb Shop and bank
- * sign hooks' form.
+ * `junkName` Plain (the default) it is pure but for one input: the bank sign's
+ * line (RSBS_MM_HINT_SRC_BANK_REWARD) reads the live enhancement CVar
+ * gEnhancements.DifficultyOptions.LowerBankRewardThresholds for its amount
+ * (5000 or 1000 Rupees), as its hook does, so that text is not a function of
+ * the world alone. Textbox is the Bomb Shop and bank sign hooks' form.
  */
 std::string FixedText(uint16_t source, const RandoSaveCheck* checks, ComboHintResolution* out,
                       JunkName junkName = JunkName::Plain);

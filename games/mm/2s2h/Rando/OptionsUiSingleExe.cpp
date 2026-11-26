@@ -828,9 +828,10 @@ const OptionUi kOptionUi[] = {
       // off RANDO_SAVE_CHECKS and names it; no other hook type involved.
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_HINTS_SONG_OF_SOARING, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
-      "Song of Soaring",
-      "The engraved stone in Southern Swamp, where the Song of Soaring is normally learned, hints where the song is.",
+      "Song of Soaring Hint", "The engraved stone in Southern Swamp hints where the Song of Soaring is.",
       0, 0, nullptr, 0,
+      // The label and tooltip follow this page's "<X> Hint" pattern, not
+      // upstream's ("Song of Soaring", 2Ship's Rando/Menu.cpp, kept as upstream).
       // EnTimeTag.cpp, OnOpenText[0x0C02], armed from ActorBehavior::OnFileLoad.
       // SkipLearningSongOfSoaring.cpp forces textId 0x0C02 on ACTOR_EN_TIME_TAG
       // via OnActorInit; both hook types dispatch in single-exe.
@@ -843,10 +844,13 @@ const OptionUi kOptionUi[] = {
       // entire question and it is answered.
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_HINTS_BANK_SIGN, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
-      "Bank Reward",
-      "The sign next to the Bank in West Clock Town will describe a "
-      "promotion for the Piece of Heart Check.",
+      "Bank Reward Hint", "The sign by the West Clock Town bank names the bank's final deposit reward.",
       0, 0, nullptr, 0,
+      // The label and tooltip follow this page's "<X> Hint" pattern, not
+      // upstream's ("Bank Reward", 2Ship's Rando/Menu.cpp, kept as upstream).
+      // The final deposit reward is the Piece of Heart check
+      // (RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART, 5000 Rupees, or 1000 with
+      // Lower Bank Reward Thresholds), whose item the sign names.
       // BankSignHint.cpp, OnOpenText[0x1C14], armed from MiscBehavior::OnFileLoad
       // when IS_RANDO && RANDO_SAVE_OPTIONS[RO_HINTS_BANK_SIGN]. OnOpenText
       // dispatches in single-exe.

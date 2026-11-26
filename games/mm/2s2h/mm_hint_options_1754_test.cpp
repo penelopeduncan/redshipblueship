@@ -7,13 +7,17 @@
  * src/common/test_runner.cpp.
  *
  * LEGS:
- *   1. Descriptors: both rows are LIVE checkboxes under Hints, default 0, with
- *      upstream's labels ("Song of Soaring", "Bank Reward").
+ *   1. Descriptors: both rows are LIVE checkboxes under Hints, default 0, labelled
+ *      "Song of Soaring Hint" and "Bank Reward Hint". The labels and tooltips follow
+ *      the hosted Hints page's "<X> Hint" pattern, not upstream's ("Song of Soaring",
+ *      "Bank Reward"), which 2Ship's own Rando/Menu.cpp keeps.
  *   2. Rando::HintSources::Listed over an authored rando image: false at 0, true at 1.
  *   3. Soaring resolver: RI_SONG_SOARING on a chosen MM check resolves to FIXED with
- *      that check and its Combo_Area_OfCheck, text starting "A note is carved into the stone...".
+ *      that check and its Combo_Area_OfCheck, text starting "A note is carved into the stone..."
+ *      and naming that area (Combo_Area_Name, the name ReplaceItemLocation inserts).
  *   4. Bank resolver: bank check shuffled holding RI_HOOKSHOT; text contains
- *      "Deposit %r5000 Rupees" with LowerBankRewardThresholds at 0 and "1000" at 1,
+ *      "Deposit %r5000 Rupees" with LowerBankRewardThresholds at 0 and
+ *      "Deposit %r1000 Rupees" at 1,
  *      targeting that check and item; TestLegacyFixedText equals TestTextboxText for both.
  *   5. Hooks through MM_GameHooks_ExecuteOnOpenText over a calloc'd PlayState with a
  *      three-row messageTableNES (0x1C14, 0x0C02, 0xFFFF):
@@ -23,6 +27,10 @@
  *      (d) 0x1C14 with bank check shuffled and unobtained: load false, source marked read.
  *      (e) 0x1C14 with bank check obtained: load true, bit stays clear.
  *      (f) Bank option set to 0 and BankSignHint() re-run: 0x1C14 leaves load true.
+ *
+ * ENTRY. No paired foreign placement may be active (Combo_ForeignPairingActive):
+ * the bank text and the Soaring location consult the crossing store, so a pairing
+ * left armed by an earlier row would change what legs 3 and 4 read.
  *
  * CLEANUP. Restores SaveContext, MM_gPlayState, the bank threshold key, both option
  * CVars, and both read bits, then re-runs InitEnTimeTagBehavior() and BankSignHint()
@@ -59,6 +67,7 @@ extern "C" int MM_HintOptions1754_RunHeadless(void) {
 #include "combo_hint_view.h"
 #include "combo_mm_options_view.h"
 #include "context.h"
+#include "foreign_items.h"
 #include "game.h"
 
 extern "C" {
@@ -116,7 +125,7 @@ void Ho1754InitAuthoredSave(SaveContext* save) {
     save->save.shipSaveInfo.saveType = SAVETYPE_RANDO;
 }
 
-// 11-byte header + 0xBF terminator (message_data_static.h:6-11).
+// MESSAGE_HEADER_SIZE (11, 2s2h/CustomMessage/CustomMessage.h) header bytes + 0xBF terminator.
 const char kEmptyVanillaMsg[MESSAGE_HEADER_SIZE + 1] = {
     0,          0,          (char)0xFE, (char)0xFF, (char)0xFF, (char)0xFF,
     (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xBF,
@@ -139,8 +148,9 @@ int Ho1754RunDescriptorLeg() {
     HO1754_ASSERT(soaring->widget == COMBO_MM_WIDGET_CHECKBOX, 12, "RO_HINTS_SONG_OF_SOARING is not a checkbox");
     HO1754_ASSERT(soaring->liveness == COMBO_MM_LIVENESS_LIVE, 13, "RO_HINTS_SONG_OF_SOARING is not LIVE");
     HO1754_ASSERT(soaring->defaultValue == 0, 14, "RO_HINTS_SONG_OF_SOARING default is not 0");
-    HO1754_ASSERT(soaring->label != nullptr && std::strcmp(soaring->label, "Song of Soaring") == 0, 15,
-                  "RO_HINTS_SONG_OF_SOARING label does not match upstream 'Song of Soaring'");
+    // The hosted page's "<X> Hint" pattern, not upstream's label (LEGS, 1).
+    HO1754_ASSERT(soaring->label != nullptr && std::strcmp(soaring->label, "Song of Soaring Hint") == 0, 15,
+                  "RO_HINTS_SONG_OF_SOARING label is not 'Song of Soaring Hint'");
 
     const ComboMMOptionDesc* bank = Combo_MMOptionById((uint16_t)RO_HINTS_BANK_SIGN);
     HO1754_ASSERT(bank != nullptr, 16, "RO_HINTS_BANK_SIGN has no UI descriptor");
@@ -148,8 +158,8 @@ int Ho1754RunDescriptorLeg() {
     HO1754_ASSERT(bank->widget == COMBO_MM_WIDGET_CHECKBOX, 18, "RO_HINTS_BANK_SIGN is not a checkbox");
     HO1754_ASSERT(bank->liveness == COMBO_MM_LIVENESS_LIVE, 19, "RO_HINTS_BANK_SIGN is not LIVE");
     HO1754_ASSERT(bank->defaultValue == 0, 20, "RO_HINTS_BANK_SIGN default is not 0");
-    HO1754_ASSERT(bank->label != nullptr && std::strcmp(bank->label, "Bank Reward") == 0, 21,
-                  "RO_HINTS_BANK_SIGN label does not match upstream 'Bank Reward'");
+    HO1754_ASSERT(bank->label != nullptr && std::strcmp(bank->label, "Bank Reward Hint") == 0, 21,
+                  "RO_HINTS_BANK_SIGN label is not 'Bank Reward Hint'");
     return 0;
 }
 
@@ -192,6 +202,13 @@ int Ho1754RunListedAndResolverLegs() {
     static const char kSoaringPrefix[] = "A note is carved into the stone...";
     HO1754_ASSERT(std::strncmp(soaringRes.text, kSoaringPrefix, sizeof(kSoaringPrefix) - 1) == 0, 35,
                   "Soaring hint text does not start with upstream engraving text");
+    // ReplaceItemLocation fills "%y{{location}}%w" with Combo_Area_Name of the holding check's area
+    // (HintAreaSingleExe.cpp ReplaceAreaText; an MM area's name is inserted unchanged).
+    const char* const wantAreaName = Combo_Area_Name(wantArea);
+    HO1754_ASSERT(wantAreaName != nullptr && wantAreaName[0] != '\0', 36, "the Soaring check's area has no name");
+    const std::string wantAreaText = std::string("%y") + wantAreaName + "%w";
+    HO1754_ASSERT(std::strstr(soaringRes.text, wantAreaText.c_str()) != nullptr, 36,
+                  "Soaring hint text does not name the area of the check holding the Song of Soaring");
 
     // Leg 4: Bank resolver and Legacy/Textbox parity.
     const RandoCheckId kBankCheck = RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART;
@@ -216,8 +233,8 @@ int Ho1754RunListedAndResolverLegs() {
     ComboHintResolution bankRes1000{};
     HO1754_ASSERT(Rando::HintSources::Resolve(save.get(), RSBS_MM_HINT_SRC_BANK_REWARD, &bankRes1000), 44,
                   "Bank Reward hint source did not resolve with threshold key at 1");
-    HO1754_ASSERT(std::strstr(bankRes1000.text, "1000") != nullptr, 45,
-                  "Bank Reward hint text does not contain '1000' with LowerBankRewardThresholds at 1");
+    HO1754_ASSERT(std::strstr(bankRes1000.text, "Deposit %r1000 Rupees") != nullptr, 45,
+                  "Bank Reward hint text does not say 'Deposit %r1000 Rupees' with LowerBankRewardThresholds at 1");
 
     // Legacy vs Textbox parity on live gSaveContext.
     std::memcpy(&gSaveContext, save.get(), sizeof(SaveContext));
@@ -326,6 +343,9 @@ extern "C" int MM_HintOptions1754_RunHeadless(void) {
     auto ctx = Ship::Context::GetInstance();
     HO1754_ASSERT(ctx != nullptr, 1, "Ship::Context singleton missing - run the shared bring-up first");
     HO1754_ASSERT(ctx->GetConsoleVariables() != nullptr, 1, "ConsoleVariables missing - the legs read CVars");
+    HO1754_ASSERT(!Combo_ForeignPairingActive(), 2,
+                  "a paired foreign placement is active at entry - an earlier row left a pairing armed, and the "
+                  "bank and Soaring legs would read its crossings");
 
     auto saved = std::make_unique<uint8_t[]>(sizeof(gSaveContext));
     std::memcpy(saved.get(), &gSaveContext, sizeof(gSaveContext));

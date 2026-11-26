@@ -6,16 +6,19 @@
  *        src/common's combo_hint_view.h. See Rando/HintSources.h.
  *
  * ONE IMPLEMENTATION. Each fixed-location hint's textbox hook (EnTalk, DmStk,
- * EnZow, EnKgy, EnSsh, EnElfgrp, EnGirlA) builds its message with FixedText
- * below over MM's live save, and the combined tracker's resolver calls the same
- * FixedText over whichever MM save it reads (the live one while MM is played,
- * the frozen MM half otherwise). The texts are upstream's, moved here verbatim
+ * EnZow, EnKgy, EnSsh, EnElfgrp, EnGirlA, EnTimeTag, BankSignHint) builds its
+ * message with FixedText below over MM's live save, and the combined tracker's
+ * resolver calls the same FixedText over whichever MM save it reads (the live
+ * one while MM is played, the frozen MM half otherwise). The texts are
+ * upstream's, moved here verbatim
  * (each hook keeps upstream's own expression under its #else); the item-location
  * hints fill their location through Rando::HintArea::ReplaceItemLocation's
  * table-taking form, which the live form now calls too. One name differs on
- * purpose: MM's own junk padding in the Bomb Shop's line, which the textbox
- * suffixes with a junk item drawn from MM's global stream and the resolver does
- * not (HintSources.h, JunkName).
+ * purpose: MM's own junk padding in the Bomb Shop's line and the bank sign's,
+ * which the textbox suffixes with a junk item drawn from MM's global stream and
+ * the resolver does not (HintSources.h, JunkName). The two #1754 texts (the
+ * engraving, the bank sign) are this tree's form, not upstream's verbatim
+ * (MM_HintSources_TestLegacyFixedText).
  *
  * WHERE A SOURCE IS LISTED (the pane groups by it). A gossip stone: its scene's
  * area (Rando::HintArea::SceneArea; the gossip grottos are Termina Field's). A
@@ -315,7 +318,8 @@ const char* RemainsBoss(uint16_t source) {
 
 /** Upstream's message for fixed source `source` over `checks` (the hook's own
  *  text, moved here; each hook's #else keeps upstream's expression). `junkName`
- *  matters to the Bomb Shop's line only (BombShopItemPhrase). */
+ *  matters to the Bomb Shop's line and the bank sign's only (BombShopItemPhrase,
+ *  BankItemPhrase). */
 std::string BuildFixedText(const MmFixedSource& row, const RandoSaveCheck* checks,
                            Rando::HintSources::JunkName junkName) {
     std::string msg;
@@ -829,7 +833,13 @@ extern "C" void MM_HintSources_TestStreamReplica(uint64_t seed, int32_t max, int
  * live ReplaceItemLocation), copied from each hook's #else. The rows hold the
  * hook's text (FixedText, JunkName::Textbox) to it, so the move changed no byte,
  * and the resolver's to it but for the one junk suffix (HintSources.h). Draws as
- * the hook drew. Returns the full length, or -1 for a source that is not fixed.
+ * the hook drew. The two #1754 cases (the Song of Soaring engraving and the bank
+ * sign) are not copied from any #else: no main hook built them, so they are this
+ * tree's form (the live ReplaceItemLocation; ShopOfferedItemName over the
+ * one-argument GetItemName, where the bank hook's #else calls upstream's
+ * GetItemName(item, true)). Their parity with the hook proves the live form and
+ * the table form agree, not byte parity with upstream. Returns the full length,
+ * or -1 for a source that is not fixed.
  */
 extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, int cap) {
     if (out == nullptr || cap <= 0 || FixedSourceOf(source) == nullptr) {

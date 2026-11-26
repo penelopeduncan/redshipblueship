@@ -752,9 +752,10 @@ if(BUILD_TESTING)
     # checked from source (RSBS_SOURCE_DIR). The generated half is ComboSingleBag
     # D2's P8 (rando tier).
     redship_add_test(NAME WothHints COMMAND redship --test woth-hints)
-    # #1475 (lane H1): the combined Hint Tracker's MM side, ROM-free: MM's 74 hint
-    # sources (58 stone placements, scene versions apart, and 16 fixed hints), the
-    # resolver's caller-held stream against Ship_Random, the read record carved at
+    # #1475 (lane H1): the combined Hint Tracker's MM side, ROM-free: MM's 76 hint
+    # sources (58 stone placements, scene versions apart, and 18 fixed hints since
+    # #1754; 4 of the read record's 80 bits are left), the resolver's
+    # caller-held stream against Ship_Random, the read record carved at
     # .redsave 929 (cleared by a new file, round-tripped by a .redsave and an
     # OoT -> MM -> OoT crossing pair through the real switch commits), the masked
     # pane over an authored MM half, and the hooks' wiring from source. The

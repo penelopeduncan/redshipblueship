@@ -251,8 +251,10 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * The Majora's Mask hint read record's capacity (#1475, lane H1), in hint
  * sources (bits): ComboContext.mmHintsRead, one bit per source id of
  * combo_hint_view.h (RSBS_MM_HINT_SRC_*: the 58 gossip-stone placements, then
- * MM's 16 fixed-location hints). Ten bytes, carved from reserved[] (ADR 0009
- * claim 20); a source id past it is a format change, never a truncation.
+ * MM's 18 fixed-location hints, 76 sources since #1754 added the Song of Soaring
+ * engraving and the bank sign; 4 of the 80 bits are left). Ten bytes, carved
+ * from reserved[] (ADR 0009 claim 20); a source id past it is a format change,
+ * never a truncation.
  */
 #define RSBS_MM_HINT_READ_CAP 80u
 

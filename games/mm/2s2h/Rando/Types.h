@@ -3415,12 +3415,12 @@ typedef enum {
     // strings fold it only when it is on (0, the default).
     RO_SHUFFLE_OCARINA,
     // Appended for the same reason (#1754): 2Ship's Song of Soaring hint option
-    // (e3bfae008, upstream PR 1482). The identity strings fold it only when on
-    // (0, the default).
+    // (e3bfae008, upstream PR 1482). The identity strings fold it only when it
+    // is on (off, 0, is the default).
     RO_HINTS_SONG_OF_SOARING,
     // Appended for the same reason (#1754): 2Ship's Bank Reward hint option
-    // (2056ebc7a, upstream PR 1595). The identity strings fold it only when on
-    // (0, the default).
+    // (2056ebc7a, upstream PR 1595). The identity strings fold it only when it
+    // is on (off, 0, is the default).
     RO_HINTS_BANK_SIGN,
     RO_MAX,
 } RandoOptionId;

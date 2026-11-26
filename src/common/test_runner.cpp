@@ -11088,7 +11088,7 @@ const TestDescriptor gTests[] = {
     // #1475 (lane H1): the combined Hint Tracker's MM side. The world row needs a
     // generation; skipped by `--test all` below like its siblings.
     { "mm-hint-sources",
-      "MM's 74 hint sources, the resolver's stream, the read record (cleared by a new file, round-tripped by a "
+      "MM's 76 hint sources, the resolver's stream, the read record (cleared by a new file, round-tripped by a "
       ".redsave and an OoT -> MM -> OoT crossing pair), the masked pane and the hooks' wiring (#1475)",
       Test_MmHintSources },
     { "mm-hint-sources-world",
