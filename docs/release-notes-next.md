@@ -74,6 +74,21 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   longer finds the seven; "jumpslash" does. Majora's Mask's trick list still says "Jump Slash". A solo Ocarina of Time
   spoiler log from an older version that names one of the eight by its old name still loads, with that trick off and no
   message.
+- **A hand-edited list of excluded locations, tricks or glitches no longer crashes the game** (issue #1819). The Ocarina
+  of Time randomizer keeps three lists in `shipofharkinian.json` (under `gRandoSettings`) as numbers separated by
+  commas: `ExcludedLocations`, `EnabledTricks` and `EnabledGlitches`. The menu writes the locations and tricks lists
+  cleanly and never writes the glitches list, so this only concerns a settings or preset file edited by hand, or one
+  written by a build whose ids differ. In such a list, an entry that did not begin with a number (a word, for example),
+  a number too large to store or, for tricks and glitches, an empty entry (two commas in a row) crashed RedShipBlueShip
+  as soon as Randomizer > Locations or Randomizer > Tricks/Glitches was first drawn, or a preset holding such a list was
+  applied. In `v0.5.3-alpha` an empty entry was enough on the Locations page too. A bad entry in the locations or tricks
+  list also made Generate Randomizer fail with no seed and no message outside the log. Such an entry is now skipped and
+  the rest of the list applies; a warning goes to the log, except for an empty entry. Entries are also read more
+  strictly: `12abc` and `+12` used to be read as 12 and are now skipped, and an id this build does not have is skipped
+  instead of being passed on to generation. Reading a list does not change your settings file, but the skipped entries
+  are dropped from it the next time you change that list on the Locations or Tricks/Glitches page. A new test feeds
+  malformed lists to all three readers (for the Tricks/Glitches page it checks only that nothing throws); nobody has
+  tried it with a real settings file.
 
 ### Cross-game randomizer
 
