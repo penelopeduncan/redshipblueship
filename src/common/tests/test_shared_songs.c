@@ -1060,10 +1060,20 @@ static void SsOffVerifyRuntimeGiveAndHints(void) {
 // shared-songs-off-junk-give: ROM-free lock on fixed-at-home and second-check junk
 // ============================================================================
 
+// #1587 stage B, leg (4): the Shared Sun's Song and Shared Saria's Song bridges
+// (oot_shared_songs_test.cpp, mm_shared_songs_test.cpp), declared here because
+// test_shared_sun_saria.c is included after this file.
+extern "C" {
+int OoT_SharedSunSariaTest_PoolId(int song);
+int MM_SharedSunSariaTest_PoolId(int song);
+void MM_SharedSunSariaTest_SetHeld(int song, int held);
+}
+
 TestResult Test_SharedSongsOffJunkGive(void) {
     printf("[TEST] shared-songs-off-junk-give: under Shuffle Songs Off, Combo_SharedWarpSongFixedAtHome covers all "
-           "armed shared songs and Combo_SharedSongOffGiveBecomesJunk converts only the second-reached default check "
-           "of an armed first-word shared song to junk (#1561)\n");
+           "armed shared songs (the Sun's Song and Saria's Song included, #1587) and "
+           "Combo_SharedSongOffGiveBecomesJunk converts only the second-reached default check of an armed first-word "
+           "shared song to junk (#1561)\n");
     sSsFailures = 0;
     const GameId priorGame = Context_GetCurrentGame();
 
@@ -1180,6 +1190,9 @@ TestResult Test_SharedSongsOffJunkGive(void) {
         SsSetThreeSongHeldMM(s, 1);
         MM_HarvestSharedResources();
         SsSetThreeSongHeldMM(s, 0);
+        // OoT runs now: arm OoT's own save. MM's ArmLive wiped the buffer both games
+        // share, and OoT's live probe would otherwise read OoT's fields from MM's.
+        OoT_SharedSwordTest_ArmLive();
         Context_SetCurrentGame(GAME_OOT);
         SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, false),
                  "(2) %s harvested from MM did not convert OoT's default check to junk", kSsOneCopySongs[s].itemName);
@@ -1228,6 +1241,116 @@ TestResult Test_SharedSongsOffJunkGive(void) {
         SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootLens, RSBS_SONG_SPOTS_OFF, true) &&
                      !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmLens, RSBS_SONG_SPOTS_OFF, true),
                  "(3) non-song first-word family (Lens) matched Combo_SharedSongOffGiveBecomesJunk");
+    }
+
+    // ---- (4) #1587 stage B: the Shared Sun's Song and Shared Saria's Song --------
+    // Both rules are second-word bits, hidden (RSBS_XITEM2_HIDDEN): frozen directly
+    // (the freeze stores the word unfiltered), so no reveal is needed.
+    {
+        const uint32_t sunBit = RSBS_XITEM2_SHARED_SONG_SUN;
+        const uint32_t sariaBit = RSBS_XITEM2_SHARED_SONG_SARIAS;
+        const uint32_t bits[2] = { sunBit, sariaBit };
+        uint16_t ootSs[2] = { 0, 0 };
+        uint16_t mmSs[2] = { 0, 0 };
+        for (int song = 0; song < 2; song++) {
+            ootSs[song] = (uint16_t)OoT_SharedSunSariaTest_PoolId(song);
+            mmSs[song] = (uint16_t)MM_SharedSunSariaTest_PoolId(song);
+            uint16_t ootReg = 0;
+            uint16_t mmReg = 0;
+            SS_CHECK(Combo_SharedFamily2MemberId(GAME_OOT, bits[song], &ootReg) && ootReg == ootSs[song] &&
+                         Combo_SharedFamily2MemberId(GAME_MM, bits[song], &mmReg) && mmReg == mmSs[song],
+                     "(4) song %d's members are not registered at its bit in both games (OoT %u, MM %u)", song,
+                     (unsigned)ootReg, (unsigned)mmReg);
+        }
+        const ComboItemRulesRecord none = SsRules(0u);
+
+        // (4a) Rules off: neither song is fixed at home. Catches: a reader that
+        // treats the song itself, not its frozen rule, as shared.
+        SsFreezeWorld2(&none, 0u);
+        for (int song = 0; song < 2; song++) {
+            SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootSs[song], RSBS_SONG_SPOTS_OFF) &&
+                         !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmSs[song], RSBS_SONG_SPOTS_OFF),
+                     "(4a) with both rules off song %d is fixed at home under Off", song);
+        }
+
+        // (4b) Both rules on: fixed at home in both games under Off only; each rule
+        // alone covers only its own song. Catches: the reader's second-word mask
+        // narrowed back to the warp songs (shared_resources.c), a mask that swaps or
+        // merges the two bits, and an Off test lost.
+        SsFreezeWorld2(&none, sunBit | sariaBit);
+        SS_CHECK((Combo_SharedFamilies2Armed() & (sunBit | sariaBit)) == (sunBit | sariaBit),
+                 "(4b) the freeze did not arm the Sun's Song and Saria's Song (armed2 %08X)",
+                 (unsigned)Combo_SharedFamilies2Armed());
+        for (int song = 0; song < 2; song++) {
+            SS_CHECK(Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootSs[song], RSBS_SONG_SPOTS_OFF) &&
+                         Combo_SharedWarpSongFixedAtHome(GAME_MM, mmSs[song], RSBS_SONG_SPOTS_OFF),
+                     "(4b) shared song %d must be fixed at home in both games under Shuffle Songs Off", song);
+            for (uint32_t mode = 1u; mode <= 3u; mode++) {
+                SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootSs[song], mode) &&
+                             !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmSs[song], mode),
+                         "(4b) shared song %d must NOT be fixed at home under Shuffle Songs %u", song, (unsigned)mode);
+            }
+        }
+        for (int only = 0; only < 2; only++) {
+            SsFreezeWorld2(&none, bits[only]);
+            const int other = 1 - only;
+            SS_CHECK(Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootSs[only], RSBS_SONG_SPOTS_OFF) &&
+                         !Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootSs[other], RSBS_SONG_SPOTS_OFF) &&
+                         !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmSs[other], RSBS_SONG_SPOTS_OFF),
+                     "(4b) rule %d alone must fix only its own song at home", only);
+        }
+
+        // (4c) Owned, held and running-game-owned, the two songs never convert to
+        // junk: each has ONE default check (OoT's), so there is no second check.
+        // Catches: Combo_SharedSongOffGiveBecomesJunk widened to the second word.
+        SsFreezeWorld2(&none, sunBit | sariaBit);
+        gComboCtx.sharedFamilyOwned2 = sunBit | sariaBit;
+        Context_SetCurrentGame(GAME_NONE);
+        for (int song = 0; song < 2; song++) {
+            for (uint32_t mode = 0u; mode <= 3u; mode++) {
+                SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootSs[song], mode, true) &&
+                             !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmSs[song], mode, true) &&
+                             !Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootSs[song], mode, false) &&
+                             !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmSs[song], mode, false),
+                         "(4c) owned shared song %d converted to junk under Shuffle Songs %u", song, (unsigned)mode);
+            }
+        }
+        // The live probe: MM's live save holds both songs before any harvest.
+        SsFreezeWorld2(&none, sunBit | sariaBit);
+        MM_SharedSwordTest_ArmLive();
+        MM_SharedSunSariaTest_SetHeld(0, 1);
+        MM_SharedSunSariaTest_SetHeld(1, 1);
+        Context_SetCurrentGame(GAME_MM);
+        for (int song = 0; song < 2; song++) {
+            SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootSs[song], RSBS_SONG_SPOTS_OFF, false) &&
+                         !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmSs[song], RSBS_SONG_SPOTS_OFF, true),
+                     "(4c) shared song %d held live by MM converted to junk under Off", song);
+        }
+        MM_SharedSunSariaTest_SetHeld(0, 0);
+        MM_SharedSunSariaTest_SetHeld(1, 0);
+        Context_SetCurrentGame(GAME_NONE);
+
+        // (4d) The Shared Gerudo Mask and Shared Skull Mask hold first-word bits
+        // 0x4000 and 0x8000, the Sun's and Saria's second-word values: owned under
+        // Off, they never convert to junk. Catches: the junk mask widened by OR-ing
+        // RSBS_XITEM2_SHARED_SONGS into a first-word test.
+        const uint32_t maskBits[2] = { RSBS_XITEM_SHARED_GERUDO, RSBS_XITEM_SHARED_SKULL };
+        const ComboItemRulesRecord masks = SsRules(RSBS_XITEM_GERUDO_MASK_MM | RSBS_XITEM_SKULL_MASK_MM |
+                                                   RSBS_XITEM_SHARED_GERUDO | RSBS_XITEM_SHARED_SKULL);
+        SsFreezeWorld2(&masks, 0u);
+        gComboCtx.sharedFamilyOwned = RSBS_XITEM_SHARED_GERUDO | RSBS_XITEM_SHARED_SKULL;
+        for (int m = 0; m < 2; m++) {
+            uint16_t ootMask = 0;
+            const bool reg = Combo_SharedFamilyMemberId(GAME_OOT, maskBits[m], &ootMask);
+            SS_CHECK(reg && Combo_SharedFamilyArmedBitOf(GAME_OOT, ootMask) == maskBits[m],
+                     "(4d) mask family %08X is not armed at its OoT member (registered %d, armed bit %08X): the leg "
+                     "would not test the guard",
+                     (unsigned)maskBits[m], reg ? 1 : 0, (unsigned)Combo_SharedFamilyArmedBitOf(GAME_OOT, ootMask));
+            SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootMask, RSBS_SONG_SPOTS_OFF, true),
+                     "(4d) the owned shared mask %08X converted to junk under Off: a second-word song bit leaked into "
+                     "the first-word junk test",
+                     (unsigned)maskBits[m]);
+        }
     }
 
     SsResetAllThreeSongsHeld();

@@ -171,10 +171,10 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * amendment of the same date). A lane that adds saved state follows it without
  * asking; anything it does not cover is a save format generation.
  *
- *   1. ComboContext. APPEND after the last member (today crossingPendingOoT, below).
+ *   1. ComboContext. APPEND after the last member (today sharedResourcesExt2, below).
  *      Never carve reserved[] (it is frozen at 64 bytes) and never insert. Move
  *      the LAST-MEMBER assert below (`sizeof(ComboContext) == offsetof(ComboContext,
- *      <last>) + sizeof(<it>)`, today written against crossingPendingOoT) to the new
+ *      <last>) + sizeof(<it>)`, today written against sharedResourcesExt2) to the new
  *      member, and tie the new member to the one before it by a contiguity assert
  *      (mind its alignment: say where any padding falls); the members before it
  *      keep theirs. Update RSBS_PIN_COMBO_CONTEXT_SIZEOF (save_layout_pins.h)
@@ -448,7 +448,8 @@ typedef struct ComboSaveWatermark {
  * value together ("current health is tracked as if OoT and MM were one game
  * with a single health bar"). All eight slots of THIS block are spoken for by
  * v1 plus magic; the ammo tier's nine kinds live in the second block below.
- * Together the two blocks hold twenty slots, seventeen of them occupied.
+ * Together the three blocks hold twenty-eight slots (#1702 C7 appended the
+ * third), seventeen of them occupied by the unconditional kinds.
  *
  * DO NOT BUMP THIS CONSTANT to get more capacity, for the reason
  * RSBS_GRANT_SOURCE_CAP spells out: the array is carved from the front of
@@ -478,8 +479,11 @@ typedef struct ComboSaveWatermark {
  * amendment. The three spare slots kept the next resources from needing any of
  * that, and they are now spoken for: the triforce count, the Kokiri Sword and
  * the bottle count (#970) are each armed per world, and a world that arms all
- * three fills the twentieth slot. RSBS_SHARED_RES_KIND_COUNT's static assert
- * (shared_resources.h) stops the next kind at compile time.
+ * three fills the twentieth slot. The twenty-first armable kind (#1702 C7's
+ * Bombchu Bag tier) therefore needed the third block, which could no longer be
+ * carved and was appended instead (RSBS_SHARED_RESOURCE_EXT2_CAP below).
+ * RSBS_SHARED_RES_KIND_COUNT's static assert (shared_resources.h) stops a kind
+ * that outgrows all three at compile time.
  *
  * Bounded from above by ADR 0009's 64-byte reserved[] floor, not by taste:
  * twelve slots is 48 bytes, leaving reserved[132], which still clears the floor
@@ -488,8 +492,20 @@ typedef struct ComboSaveWatermark {
  */
 #define RSBS_SHARED_RESOURCE_EXT_CAP 12u
 
-/** Logical slot count across BOTH shared-resource blocks. */
-#define RSBS_SHARED_RESOURCE_TOTAL_CAP (RSBS_SHARED_RESOURCE_CAP + RSBS_SHARED_RESOURCE_EXT_CAP)
+/**
+ * Capacity of ComboContext.sharedResourcesExt2 (#1702 C7): the THIRD
+ * shared-resource block. Carving reserved[] is closed (save format 6 froze it
+ * at 64 bytes), so this block is APPENDED after crossingPendingOoT under growth
+ * rule 1 rather than carved. The Bombchu Bag tier is the twenty-first kind one
+ * world can arm; the seven spare slots keep the next kinds from needing a
+ * fourth block. Like the second block, it is part of the one logical array:
+ * logical slots 20..27, spanned by every scan in shared_resources.c.
+ */
+#define RSBS_SHARED_RESOURCE_EXT2_CAP 8u
+
+/** Logical slot count across ALL THREE shared-resource blocks. */
+#define RSBS_SHARED_RESOURCE_TOTAL_CAP \
+    (RSBS_SHARED_RESOURCE_CAP + RSBS_SHARED_RESOURCE_EXT_CAP + RSBS_SHARED_RESOURCE_EXT2_CAP)
 
 /**
  * One cross-game item, tagged with the game whose id-space `id` belongs to.
@@ -665,10 +681,19 @@ enum {
     // The CONTENTS never cross: an apply gives the arriving game EMPTY bottles in
     // its next empty slots and never touches a filled one. ARMED PER WORLD by the
     // frozen item rules' RSBS_XITEM_SHARED_BOTTLES bit; disarmed, a world has no
-    // slot of this kind. A world this build creates can hold at most twenty kinds
-    // at once (the retired ocarina is never armed in one), which is exactly the
-    // two blocks' twenty slots: the next kind needs a third block.
+    // slot of this kind. A world this build creates could hold at most twenty
+    // kinds at once (the retired ocarina is never armed in one), which was
+    // exactly the first two blocks' twenty slots: the next kind needed a third.
     RSBS_SHARED_RES_BOTTLE_COUNT = 21, // MONOTONIC: 0..4, gated by the frozen Shared Bottles rule (#970)
+    // The pair's one Bombchu Bag (#1702 C7). A tier 0..3 in OoT's progressive
+    // capacities ({0,20,30,50}, the operator's ruling); a held SINGLE bag rides
+    // as 3, whose OoT capacity is the same 50. OoT reads it from
+    // bombchuUpgradeLevel (and INV under Single), MM stores it in the rando-flag
+    // thermometer RANDO_INF_OBTAINED_BOMBCHU_BAG / _LEVEL_2 / _LEVEL_3. ARMED PER
+    // WORLD by the frozen comboFlags RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG bit, which
+    // nothing writes before stage C8; disarmed, a world has no slot of this kind.
+    // The twenty-first kind one world can arm, so it needed the third block.
+    RSBS_SHARED_RES_BOMBCHU_BAG_TIER = 22, // MONOTONIC: 0..3, gated by frozen comboFlags 0x80 (#1702 C7)
 };
 
 /**
@@ -1622,8 +1647,23 @@ typedef struct {
     // multiple of the struct's 4-byte alignment, so none follows it. ZERO MEANS
     // NOTHING PENDING: a revision-4 record zero-extends to an empty set (a host
     // held or queued at a quit in such a file stays lost, as it was).
-    // THE LAST MEMBER: the next field is appended after it.
     uint8_t crossingPendingOoT[RSBS_CROSSING_PENDING_OOT_CAP / 8u];
+
+    // [RSBS #1702 C7] THE THIRD SHARED-RESOURCE BLOCK, the tail of the one
+    // logical slot array shared_resources.c spans (logical slots 20..27, after
+    // sharedResources[8] and sharedResourcesExt[12]). Carving reserved[] is
+    // closed (save format 6), so it is APPENDED after crossingPendingOoT (growth
+    // rule 1; RSBS_SAVE_LAYOUT_REVISION 6) at offset 2976. sharedResourcesExt2
+    // has alignment 2 (ComboSharedResource is {u8,u8,u16}) and 2976 is a multiple
+    // of 2, so no padding precedes it; it is 8 x 4 = 32 bytes and ends at 3008, a
+    // multiple of ComboContext's 4-byte alignment, so no tail padding follows.
+    // Session state like the first two blocks: NOT in the invalidation KEEP set,
+    // NOT a world field (a seed package's world record does not copy it), NOT
+    // folded into comboSettingsHash. ZERO MEANS EMPTY: a revision-5 record
+    // zero-extends to eight EMPTY slots, which is every world before C7 (no
+    // build armed a kind that needed a twenty-first slot).
+    // THE LAST MEMBER: the next field is appended after it.
+    ComboSharedResource sharedResourcesExt2[RSBS_SHARED_RESOURCE_EXT2_CAP];
 } ComboContext;
 
 /**
@@ -1930,13 +1970,23 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, sharedFamilyOwned2) ==
                        "sharedFamilyOwned2 (#1169 XW10, ADR 0009 claim 23) is appended directly after comboOoTWarps");
 // #1635's append (layout revision 5): directly after sharedFamilyOwned2, with no
 // padding between (sharedFamilyOwned2 ends at 2720; the array is bytes only,
-// alignment 1), and THE LAST MEMBER, so sizeof is its end: 2720 + 256 = 2976,
-// already a multiple of the struct's 4-byte alignment, so no tail padding.
+// alignment 1). It was the last member until #1702 C7's append below; it ends at
+// 2720 + 256 = 2976.
+RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, crossingPendingOoT) ==
+                               offsetof(ComboContext, sharedFamilyOwned2) + sizeof(uint32_t) &&
+                           sizeof(((ComboContext*)0)->crossingPendingOoT) == RSBS_CROSSING_PENDING_OOT_CAP / 8u,
+                       "crossingPendingOoT (#1635) is appended directly after sharedFamilyOwned2");
+// [RSBS #1702 C7] The third shared-resource block's append (layout revision 6),
+// and THE LAST MEMBER, so sizeof is its end. sharedResourcesExt2 has alignment 2
+// (ComboSharedResource is {u8,u8,u16}) and 2976 is a multiple of 2, so no
+// padding precedes it; it is 8 x 4 = 32 bytes and ends at 3008, a multiple of
+// ComboContext's 4-byte alignment, so no tail padding follows.
 RSBS_CTX_STATIC_ASSERT(
-    offsetof(ComboContext, crossingPendingOoT) == offsetof(ComboContext, sharedFamilyOwned2) + sizeof(uint32_t) &&
-        sizeof(((ComboContext*)0)->crossingPendingOoT) == RSBS_CROSSING_PENDING_OOT_CAP / 8u &&
-        sizeof(ComboContext) == offsetof(ComboContext, crossingPendingOoT) + RSBS_CROSSING_PENDING_OOT_CAP / 8u,
-    "crossingPendingOoT (#1635) is appended directly after sharedFamilyOwned2 and is "
+    offsetof(ComboContext, sharedResourcesExt2) ==
+            offsetof(ComboContext, crossingPendingOoT) + RSBS_CROSSING_PENDING_OOT_CAP / 8u &&
+        sizeof(ComboContext) ==
+            offsetof(ComboContext, sharedResourcesExt2) + RSBS_SHARED_RESOURCE_EXT2_CAP * sizeof(ComboSharedResource),
+    "sharedResourcesExt2 (#1702 C7) is appended directly after crossingPendingOoT and is "
     "ComboContext's last member: the next append moves this last-member term to the new member, "
     "raises RSBS_SAVE_LAYOUT_REVISION and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF (growth rule 1)");
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_TRACKER_AVAIL_MM, offsetof(ComboContext, trackerAvailMM));
@@ -1946,6 +1996,7 @@ RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SAVE_WATERMARK, offsetof(ComboContext, sav
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_OOT_WARPS, offsetof(ComboContext, comboOoTWarps));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_FAMILY_OWNED2, offsetof(ComboContext, sharedFamilyOwned2));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_CROSSING_PENDING_OOT, offsetof(ComboContext, crossingPendingOoT));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SHARED_RES_EXT2, offsetof(ComboContext, sharedResourcesExt2));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_CONTEXT_SIZEOF, sizeof(ComboContext));
 RSBS_CTX_STATIC_ASSERT(RSBS_TRACKER_AVAIL_OOT_CAP % 64u == 0 && RSBS_TRACKER_AVAIL_MM_CAP % 64u == 0 &&
                            RSBS_TRACKER_AVAIL_OOT_CAP <= 0xFFFFu && RSBS_TRACKER_AVAIL_MM_CAP <= 0xFFFFu,

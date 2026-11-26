@@ -1304,7 +1304,11 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Fix Out of Bounds Textures", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("FixTexturesOOB"))
         .Callback([](WidgetInfo& info) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+            OoT_AuthenticGfxPatches_Reapply(); // #1817: only under OoT's resource owner; owed while MM runs
+#else
             ApplyAuthenticGfxPatches();
+#endif
             ReapplyMmAuthenticGfxPatches(); // W6-GFX (#1237): the shared key chooses MM's patches too
         })
         .Options(CheckboxOptions().Tooltip(

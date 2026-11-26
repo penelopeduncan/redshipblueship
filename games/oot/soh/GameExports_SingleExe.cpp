@@ -3754,6 +3754,39 @@ static bool MwArmWorld(void) {
     if (shared) {
         IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_MINUET), 1);
     }
+    // int-mm-shared-sun-saria (#1587): the Shared Sun's Song and the Shared Saria's
+    // Song on too, through their keys (put back at the verdict like the others).
+    // Both bits are inside RSBS_XITEM2_HIDDEN, so the TEST ONLY reveal comes first:
+    // before the resolve and the refusal checks below, and so before the
+    // generation, the creation's freeze, the load-back and MM's arrival, which all
+    // read the reveal-aware mask (as stage A's generating rows do,
+    // test_shared_sun_saria.c). IntegrationTest_SoaringCleanup hides them again.
+    const bool sunSaria = IntegrationTest_MMSharedSunSaria();
+    const uint32_t sunSariaBits = RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS;
+    if (sunSaria) {
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+        IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_SUN), 1);
+        IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_SARIAS), 1);
+        const uint32_t sunSariaWord = Combo_ResolveComboItemRules2();
+        char sunSariaRefused[160] = "";
+        const uint32_t sunSariaRefusedBits =
+            Combo_ComboItemRules2Refused(sunSariaWord, sunSariaRefused, sizeof(sunSariaRefused));
+        const bool sunOffered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SHARED_SONG_SUN);
+        const bool sariaOffered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SHARED_SONG_SARIAS);
+        if (!sunOffered || !sariaOffered || (sunSariaWord & sunSariaBits) != sunSariaBits ||
+            sunSariaRefusedBits != 0u) {
+            char reason[640];
+            snprintf(reason, sizeof(reason),
+                     "int-mm-shared-sun-saria, the world: under the test reveal the Shared Sun's Song (offered %d) "
+                     "or the Shared Saria's Song (offered %d) is not offered, or the resolved second word 0x%08X "
+                     "does not hold both (want 0x%08X), or Generate would refuse it (refused 0x%08X: '%s'); the "
+                     "reveal, the rules' keys or the hidden mask regressed, not the pinned seed",
+                     sunOffered ? 1 : 0, sariaOffered ? 1 : 0, (unsigned)sunSariaWord, (unsigned)sunSariaBits,
+                     (unsigned)sunSariaRefusedBits, sunSariaRefused);
+            IntegrationTest_GameplayFail(reason);
+            return false;
+        }
+    }
     // The rule must be offered before the seed is blamed for anything: a mask
     // that hides songMinuetMm again makes Generate refuse the word by name
     // (playthrough.cpp's hidden-rules gate), which the generation branch would
@@ -3776,10 +3809,18 @@ static bool MwArmWorld(void) {
         IntegrationTest_GameplayFail(reason);
         return false;
     }
-    fprintf(stderr,
-            "[PFC] mm warp song: songMinuetMm on%s (the production mask, no reveal; resolved second word 0x%08X, "
-            "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
-            shared ? " with sharedSongMinuet on" : "", (unsigned)word);
+    if (sunSaria) {
+        fprintf(stderr,
+                "[PFC] mm warp song: songMinuetMm on with shared Sun/Saria (REVEALED: the test reveal, both bits "
+                "still inside RSBS_XITEM2_HIDDEN; resolved second word 0x%08X, none refused), Shuffle Songs "
+                "Anywhere, Shuffle Warp Songs at its default (off)\n",
+                (unsigned)word);
+    } else {
+        fprintf(stderr,
+                "[PFC] mm warp song: songMinuetMm on%s (the production mask, no reveal; resolved second word 0x%08X, "
+                "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
+                shared ? " with sharedSongMinuet on" : "", (unsigned)word);
+    }
     fflush(stderr);
     return true;
 }
@@ -3843,6 +3884,13 @@ static bool MwCheckCreatedWorld(char* msg, size_t cap) {
                (Combo_SharedFamilies2Owned() != 0u || Combo_MMWarpSongsOwned() != 0u)) {
         why = "the created file already owns a shared warp song or an MM warp song (the drive could not tell the "
               "family's carry from a leftover)";
+    } else if (IntegrationTest_MMSharedSunSaria() && (!Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_SONG_SUN) ||
+                                                      !Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_SONG_SARIAS))) {
+        why = "int-mm-shared-sun-saria: the creation did not freeze both sharedSongSun and sharedSongSarias on";
+    } else if (IntegrationTest_MMSharedSunSaria() &&
+               (Combo_SharedFamilies2Owned() & (RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS)) != 0u) {
+        why = "int-mm-shared-sun-saria: the created file already owns the shared Sun's Song or Saria's Song (the "
+              "drive could not tell the family's carry from a leftover)";
     }
     snprintf(msg, cap,
              "int-mm-warp-song-minuet%s, the created world: %s [rule2 0x%08X, record status %d flags 0x%02X Minuet "
@@ -3862,6 +3910,17 @@ static bool MwCheckCreatedWorld(char* msg, size_t cap) {
                 "[PFC] mm warp song (shared): OoT checks holding OoT's Minuet of Forest: %d (0 means the pair's copy "
                 "is on a Majora's Mask check)\n",
                 OoT_SharedSongsTest_WorldCopies((int)RG_MINUET_OF_FOREST));
+    }
+    if (IntegrationTest_MMSharedSunSaria()) {
+        // Diagnostic only, as above: which game's check holds each pair's one copy.
+        // PREPARE's give-record read proves the apply whichever it is.
+        fprintf(stderr,
+                "[PFC] shared sun/saria: created with both rules frozen (rule2 0x%08X, family owned2 0x%08X); OoT "
+                "checks holding OoT's Sun's Song: %d, Saria's Song: %d (0 means the pair's copy is on a Majora's "
+                "Mask check)\n",
+                (unsigned)Combo_ComboCrossItemFlags2(), (unsigned)Combo_SharedFamilies2Owned(),
+                OoT_SharedSongsTest_WorldCopies((int)RG_SUNS_SONG),
+                OoT_SharedSongsTest_WorldCopies((int)RG_SARIAS_SONG));
     }
     fprintf(stderr,
             "[PFC] mm warp song: created with songMinuetMm frozen on and an unshuffled record; Minuet lands at "
@@ -3921,6 +3980,59 @@ static bool MwSharedGiveOoTMinuet(void) {
     return true;
 }
 
+/** int-mm-shared-sun-saria (#1587): does OoT's live save hold its own member of
+ *  the shared family @p family2Bit (the Sun's Song or Saria's Song), asked through
+ *  OoT's registered member? False when no member is registered. */
+static bool MwOoTSunSariaHeld(uint32_t family2Bit) {
+    ComboSharedFamilyMember m;
+    return Combo_SharedFamily2MemberGet(GAME_OOT, family2Bit, &m) && m.held != NULL && m.held(m.nativeId);
+}
+
+/**
+ * int-mm-shared-sun-saria (#1587), the first OoT leg before the Happy Mask Shop
+ * door: OoT is given its OWN Sun's Song and Saria's Song through its registered
+ * family members (never MM's copies), so the only way Majora's Mask can hold them
+ * at PREPARE is the family: OoT's harvest at the door's suspend, then MM's apply
+ * at its arrival. MwSharedGiveOoTMinuet's shape, one call per song.
+ */
+static bool MwSharedGiveOoTSunSariaOne(uint32_t family2Bit, const char* name) {
+    ComboSharedFamilyMember m;
+    char msg[512];
+    if (!Combo_SharedFamily2MemberGet(GAME_OOT, family2Bit, &m) || m.held == NULL || m.give == NULL) {
+        snprintf(msg, sizeof(msg),
+                 "int-mm-shared-sun-saria, OoT's leg: OoT registers no member of the shared %s (GameExports' "
+                 "OoTSharedFamilyRegistrar)",
+                 name);
+        IntegrationTest_GameplayFail(msg);
+        return false;
+    }
+    const bool before = m.held(m.nativeId);
+    if (!before) {
+        m.give(m.nativeId); // the member's contract: give() only when held() is false
+    }
+    const bool after = m.held(m.nativeId);
+    if (!after) {
+        snprintf(msg, sizeof(msg),
+                 "int-mm-shared-sun-saria, OoT's leg: OoT's own %s (id %u) is NOT held after its give (family owned2 "
+                 "0x%08X, quest items 0x%08X)",
+                 name, (unsigned)m.nativeId, (unsigned)Combo_SharedFamilies2Owned(),
+                 (unsigned)gSaveContext.inventory.questItems);
+        IntegrationTest_GameplayFail(msg);
+        return false;
+    }
+    fprintf(stderr,
+            "[PFC] shared sun/saria: OoT given its own %s before the door (id %u, held before %d, now 1); family "
+            "owned2 0x%08X (OoT's harvest at the door's suspend owns it)\n",
+            name, (unsigned)m.nativeId, before ? 1 : 0, (unsigned)Combo_SharedFamilies2Owned());
+    fflush(stderr);
+    return true;
+}
+
+static bool MwSharedGiveOoTSunSaria(void) {
+    return MwSharedGiveOoTSunSariaOne(RSBS_XITEM2_SHARED_SONG_SUN, "Sun's Song") &&
+           MwSharedGiveOoTSunSariaOne(RSBS_XITEM2_SHARED_SONG_SARIAS, "Saria's Song");
+}
+
 /** Every value the arrival is judged by, on one line. */
 static void MwDescribeArrival(char* out, size_t cap, int16_t sceneNum, uint16_t entrance) {
     const uint16_t expected = MwExpectedArrival();
@@ -3965,6 +4077,10 @@ static bool MwArrivalChecks(int16_t sceneNum, uint16_t entrance) {
         why = "Minuet of Forest (MM) is no longer owned after the crossing";
     } else if (IntegrationTest_MMWarpSongMinuetShared() && !MwOoTMinuetHeld()) {
         why = "OoT's own Minuet of Forest is no longer held after the round trip (the shared family took it away)";
+    } else if (IntegrationTest_MMSharedSunSaria() && (!MwOoTSunSariaHeld(RSBS_XITEM2_SHARED_SONG_SUN) ||
+                                                      !MwOoTSunSariaHeld(RSBS_XITEM2_SHARED_SONG_SARIAS))) {
+        why = "int-mm-shared-sun-saria: OoT's own Sun's Song or Saria's Song is no longer held after the round trip "
+              "(one copy, nothing removed: the shared family or MM's Saria's Song hint took it away)";
     }
     if (why != NULL) {
         char msg[1024];
@@ -3977,6 +4093,12 @@ static bool MwArrivalChecks(int16_t sceneNum, uint16_t entrance) {
     sMwArrivalEntrance = entrance;
     sMwIdleFrames = 0;
     fprintf(stderr, "[PFC] mm warp song 'the arrival': OoT landed at the record's destination [%s]\n", state);
+    if (IntegrationTest_MMSharedSunSaria()) {
+        fprintf(stderr,
+                "[PFC] shared sun/saria 'the arrival': OoT still holds its own Sun's Song and Saria's Song (quest "
+                "items 0x%08X, family owned2 0x%08X): one copy, nothing removed\n",
+                (unsigned)gSaveContext.inventory.questItems, (unsigned)Combo_SharedFamilies2Owned());
+    }
     fflush(stderr);
     return true;
 }
@@ -4027,6 +4149,11 @@ static void MwVerdict(PlayState* play, int frame) {
             "[PFC] PASS: int-mm-warp-song-minuet: Minuet of Forest played in Majora's Mask crossed to Ocarina of "
             "Time as a child at the record's destination (scene %d, entrance 0x%04X), restored, the switch spent\n",
             (int)play->sceneNum, (unsigned)entrance);
+    if (IntegrationTest_MMSharedSunSaria()) {
+        fprintf(stderr, "[PFC] PASS: int-mm-shared-sun-saria: the shared Sun's Song (its played text and its speed-up) "
+                        "and the shared Saria's Song (no prompt, still owned) played in Majora's Mask, then the "
+                        "Minuet crossing\n");
+    }
     fflush(stderr);
     IntegrationTest_SetGameplayPhase(GP_PHASE_DONE);
     // A pass leaves no file behind (a failure keeps it for forensics; the next
@@ -4731,6 +4858,12 @@ static void OoT_RegisterIntegrationTestHooks(void) {
                     // int-mm-warp-song-minuet-shared (#1169 XW14): OoT learns its
                     // own Minuet before the door; MM must then hold it by the family.
                     if (IntegrationTest_MMWarpSongMinuetShared() && !MwSharedGiveOoTMinuet()) {
+                        return;
+                    }
+                    // int-mm-shared-sun-saria (#1587): OoT learns its own Sun's Song
+                    // and Saria's Song before the door; MM must then hold both by the
+                    // family.
+                    if (IntegrationTest_MMSharedSunSaria() && !MwSharedGiveOoTSunSaria()) {
                         return;
                     }
                     if (IntegrationTest_PairedFirstCrossing()) {
@@ -5711,6 +5844,48 @@ static uint16_t OoT_BombchuCapacity(void) {
     return (uint16_t)OOT_BOMBCHU_CAPACITY;
 }
 
+// [RSBS #1702 C7] OoT's Bombchu Bag option as the shared tier's helpers spell it
+// (shared_resources.h): the macros restate RO_BOMBCHU_BAG_* for the
+// game-header-free TU, so a renumber upstream is a build error here.
+static_assert(RSBS_CHU_BAG_MODE_NONE == (unsigned)RO_BOMBCHU_BAG_NONE &&
+                  RSBS_CHU_BAG_MODE_SINGLE == (unsigned)RO_BOMBCHU_BAG_SINGLE &&
+                  RSBS_CHU_BAG_MODE_PROGRESSIVE == (unsigned)RO_BOMBCHU_BAG_PROGRESSIVE,
+              "RSBS_CHU_BAG_MODE_* must match RandoOptionBombchuBag");
+
+// The highest shared Bombchu Bag tier OoT applies (#1702 C7): Progressive's
+// level 3 ({0,20,30,50}, GetBombchuCapacity), which is also Single's held bag.
+#define OOT_MAX_CHU_BAG_TIER 3u
+
+// [RSBS #1702 C7] A ROM-free row's stand-in for the seed's RSK_BOMBCHU_BAG: -1
+// (the default, and every production path) reads the seed. Set only by
+// oot_shared_tier_test.cpp through OoT_SharedChuBagTest_SetMode, which every row
+// that sets it puts back to -1.
+static int sOoTChuBagModeForTest = -1;
+
+extern "C" void OoT_SharedChuBagTest_SetMode(int mode) {
+    sOoTChuBagModeForTest = mode;
+}
+
+// OoT's Bombchu Bag option for the shared tier (#1702 C7): the seed's
+// RSK_BOMBCHU_BAG behind OoT_BombchuCapacity's own guard, so a process with no
+// seed context (a ROM-free row, a vanilla file) reads None and shares no bag.
+static uint8_t OoT_SharedChuBagMode(void) {
+    if (sOoTChuBagModeForTest >= 0) {
+        return (uint8_t)sOoTChuBagModeForTest;
+    }
+    if (IS_RANDO && OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandoContext != nullptr) {
+        return (uint8_t)Randomizer_GetSettingValue(RSK_BOMBCHU_BAG);
+    }
+    return (uint8_t)RSBS_CHU_BAG_MODE_NONE;
+}
+
+// The tier OoT's live save stands for (#1702 C7; Combo_SharedChuBagTierOfOoT).
+static uint16_t OoT_ReadChuBagTier(void) {
+    return Combo_SharedChuBagTierOfOoT(OoT_SharedChuBagMode(),
+                                       gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel,
+                                       INV_CONTENT(ITEM_BOMBCHU) != ITEM_NONE);
+}
+
 // The count's ceiling in OoT right now: the live capacity for a row that has an
 // upgrade, the live bombchu capacity for the one that does not.
 static uint16_t OoT_AmmoCapacity(const OoTSharedAmmo* row) {
@@ -6471,8 +6646,10 @@ const OoTSharedSwimRegistrar gOoTSharedSwimRegistrar;
 // Bombchu item in the inventory (Context::HandleGetBombchuBag, SeedContext.cpp).
 // A member is asked only while its slot is armed (Combo_SharedPossessionArmed):
 // only while the frozen Shared Child's Wallet rule arms the wallet slot (#1702
-// C2); the bag slot is armed by nothing, so the bag member is registered but dead
-// until C7 replaces the transport. R2 (the wallet-tier apply) does not depend on
+// C2); the bag slot is armed by nothing; the bag's transport since #1702 C7 is
+// RSBS_SHARED_RES_BOMBCHU_BAG_TIER (OoT_HarvestSharedKind / OoT_ApplySharedKind),
+// so this member stays dead and C8 must not arm the slot (or deletes the member,
+// as C7 did for MM's). R2 (the wallet-tier apply) does not depend on
 // arming. The ids are the items
 // OoT places: RG_PROGRESSIVE_WALLET resolves to the child wallet while the flag is
 // clear (item.cpp), RG_PROGRESSIVE_BOMBCHU_BAG is the bag under Single and
@@ -6927,6 +7104,18 @@ static const OoTSharedAmmo* OoT_SharedAmmoRowForTier(uint8_t kind) {
     return nullptr;
 }
 
+// The tier-less bombchu row (the twin of MM_SharedBombchuRow): the count the
+// shared Bombchu Bag tier (#1702 C7) bounds.
+static const OoTSharedAmmo* OoT_SharedBombchuRow(void) {
+    for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {
+        if (kOoTSharedAmmo[i].tierKind == RSBS_SHARED_RES_NONE &&
+            kOoTSharedAmmo[i].countKind == RSBS_SHARED_RES_BOMBCHU_COUNT) {
+            return &kOoTSharedAmmo[i];
+        }
+    }
+    return nullptr;
+}
+
 // The cap OoT's apply bounds a MONOTONIC kind with: the highest value OoT's
 // own tables define, so a pool value authored by a future build with more
 // tiers cannot index off the end of them (see each OOT_MAX_*). 0 for a kind
@@ -6954,6 +7143,8 @@ static uint16_t OoT_SharedKindCap(uint8_t kind) {
             return (uint16_t)OOT_MAX_KOKIRI_SWORD;
         case RSBS_SHARED_RES_BOTTLE_COUNT:
             return (uint16_t)OOT_MAX_BOTTLE_COUNT;
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
+            return (uint16_t)OOT_MAX_CHU_BAG_TIER;
         default:
             return 0u;
     }
@@ -7029,6 +7220,19 @@ static void OoT_HarvestSharedKind(uint8_t kind) {
         case RSBS_SHARED_RES_BOTTLE_COUNT:
             Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_BOTTLE_COUNT, OoT_ReadBottleCount());
             break;
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER: {
+            // [RSBS #1702 C7] The pair's one Bombchu Bag, armed only by the frozen
+            // comboFlags 0x80 (Combo_SharedBombchuBagTierArmed; nothing writes it
+            // before C8). Unarmed, the tier harvest is a no-op at its gate and the
+            // count harvest below is not called at all.
+            Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, OoT_ReadChuBagTier());
+            const OoTSharedAmmo* chuRow = OoT_SharedBombchuRow();
+            if (chuRow != nullptr && Combo_SharedBombchuBagTierArmed()) {
+                // The step's first step for the count it re-applies.
+                Combo_HarvestSharedResource(GAME_OOT, chuRow->countKind, OoT_ReadAmmo(chuRow->item));
+            }
+            break;
+        }
         case RSBS_SHARED_RES_TRIFORCE_PIECES:
             // OoT's counter is a MIRROR of the one combo count, so harvesting it
             // max-merges OoT's collects into that count.
@@ -7294,6 +7498,30 @@ static void OoT_ApplySharedKind(uint8_t kind) {
             }
             break;
         }
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER: {
+            // [RSBS #1702 C7] The pair's one Bombchu Bag (monotonic 0..3), armed
+            // only by the frozen comboFlags 0x80, which nothing writes before C8.
+            // Progressive raises bombchuUpgradeLevel; Single only sets the item (a
+            // held Single bag is tier 3, and Single's cap is 50 whatever the
+            // level). The count is re-applied only when the tier applied, after
+            // the bag that bounds it; unarmed nothing here runs past the gate.
+            const uint8_t mode = OoT_SharedChuBagMode();
+            uint8_t level = gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel;
+            bool holds = INV_CONTENT(ITEM_BOMBCHU) != ITEM_NONE;
+            uint16_t tier = Combo_SharedChuBagTierOfOoT(mode, level, holds);
+            if (Combo_ApplySharedResource(GAME_OOT, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, OOT_MAX_CHU_BAG_TIER, &tier)) {
+                Combo_SharedChuBagOoTFromTier(mode, tier, &level, &holds);
+                gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel = level;
+                if (holds) {
+                    OoT_EnsureInventoryItem(ITEM_BOMBCHU);
+                }
+                const OoTSharedAmmo* chuRow = OoT_SharedBombchuRow();
+                if (chuRow != nullptr) {
+                    OoT_ApplySharedAmmoCount(chuRow, OoT_SharedAmmoGrantBlocked(chuRow));
+                }
+            }
+            break;
+        }
         case RSBS_SHARED_RES_TRIFORCE_PIECES: {
             // --- Triforce pieces (monotonic, ADR 0010 answer O10), armed only when
             // the frozen combo goal is triforce-hunt. OoT's counter becomes the
@@ -7360,6 +7588,9 @@ extern "C" void OoT_HarvestSharedResources(void) {
             Combo_HarvestSharedResource(GAME_OOT, row->countKind, OoT_ReadAmmo(row->item));
         }
     }
+    // [RSBS #1702 C7] The Bombchu Bag tier, after the count it bounds; armed only
+    // by the frozen comboFlags 0x80 (a no-op at its gate until C8 writes it).
+    OoT_HarvestSharedKind(RSBS_SHARED_RES_BOMBCHU_BAG_TIER);
 
     OoT_HarvestSharedKind(RSBS_SHARED_RES_HOOKSHOT_TIER);
 
@@ -7533,6 +7764,12 @@ extern "C" void OoT_ApplySharedResources(void) {
     OoT_ApplySharedKind(RSBS_SHARED_RES_HEALTH_QUARTERS); // then the current health
     OoT_ApplySharedKind(RSBS_SHARED_RES_DOUBLE_DEFENSE);
     OoT_ApplySharedKind(RSBS_SHARED_RES_MAGIC_LEVEL); // then the current magic
+
+    // [RSBS #1702 C7] The Bombchu Bag tier BEFORE the ammo loop: the bag bounds
+    // the bombchu count (Progressive's capacity reads the level, the grant block
+    // reads the item). Armed only by the frozen comboFlags 0x80; unarmed the case
+    // stops at its gate and the loop below runs exactly as before.
+    OoT_ApplySharedKind(RSBS_SHARED_RES_BOMBCHU_BAG_TIER);
 
     // --- Ammo: every tier BEFORE the count it bounds, in one pass per row.
     for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {

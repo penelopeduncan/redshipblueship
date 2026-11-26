@@ -4530,20 +4530,24 @@ TestResult Test_ComboLogicFixedCredit(void) {
                       !ClFixedCreditCandidateHas(GAME_MM, 21),
                   "(9d) forbidding both default checks leaves song-gated hosts unreached in both games");
 
-        // Capacity pin: 7 shared warp songs + 3 two-host shared songs = 13 <= CAP (16).
-        CLF_CHECK(RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP >= 16, "(9e) fixed-credit cap must fit 7 warp + 6 two-host songs");
-        ComboLogicFixedCredit thirteen[13];
+        // Capacity pin: 7 warp + 2 (Sun, Saria) at one host each + 3x2 two-host shared songs = 15 <= CAP (16).
+        CLF_CHECK(RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP >= 16,
+                  "(9e) fixed-credit cap must fit 7 warp + 2 (Sun, Saria) + 3x2 two-host songs = 15");
+        ComboLogicFixedCredit fifteen[15];
         for (int i = 0; i < 7; ++i) {
-            thirteen[i] = ClFixedCredit(O, (uint16_t)(10 + i), M, kMmFixedSong);
+            fifteen[i] = ClFixedCredit(O, (uint16_t)(10 + i), M, kMmFixedSong);
         }
+        // #1587 stage B: the Sun's Song and Saria's Song, an OoT host only.
+        fifteen[7] = ClFixedCredit(O, 17, M, kMmFixedSong);
+        fifteen[8] = ClFixedCredit(O, 18, M, kMmFixedSong);
         for (int i = 0; i < 3; ++i) {
-            thirteen[7 + 2 * i] = ClFixedCredit(O, (uint16_t)(30 + i), M, kMmFixedSong);
-            thirteen[7 + 2 * i + 1] = ClFixedCredit(M, (uint16_t)(40 + i), O, kOotFixedSong);
+            fifteen[9 + 2 * i] = ClFixedCredit(O, (uint16_t)(30 + i), M, kMmFixedSong);
+            fifteen[9 + 2 * i + 1] = ClFixedCredit(M, (uint16_t)(40 + i), O, kOotFixedSong);
         }
-        CLF_CHECK(Combo_Logic_SetFixedCredits(thirteen, 13) == 13 && Combo_Logic_FixedCreditCount() == 13,
-                  "(9e) all 10 shared song rules on together under Off (13 credits) must be accepted");
+        CLF_CHECK(Combo_Logic_SetFixedCredits(fifteen, 15) == 15 && Combo_Logic_FixedCreditCount() == 15,
+                  "(9e) all 12 shared song rules on together under Off (15 credits) must be accepted");
         Combo_SingleBag_Forget();
-        CLF_CHECK(Combo_Logic_FixedCreditCount() == 0, "(9e) Combo_SingleBag_Forget cleared the 13 credits");
+        CLF_CHECK(Combo_Logic_FixedCreditCount() == 0, "(9e) Combo_SingleBag_Forget cleared the 15 credits");
     }
 
     printf("[TEST] combo-logic-fixed-credit: %s\n", sClfFailures == 0 ? "PASS" : "FAIL");

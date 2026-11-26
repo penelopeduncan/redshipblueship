@@ -1,6 +1,9 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/ShipInit.hpp"
 #include "soh/ResourceManagerHelpers.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "soh/Enhancements/cosmetics/OwedGfxPatches.h" // #1829: OoT_GfxPatches_RunOrOwe
+#endif
 
 extern "C" {
 #include "macros.h"
@@ -72,13 +75,21 @@ static void MakeEquipmentAlwaysVisible() {
     }
 }
 
-static void RegisterAgeDependentEquipmentHook() {
+static void AgeDependentEquipment_Pass(bool /*owed*/) {
     if (CVAR_AGE_EQUIPMENT_VALUE) {
         MakeEquipmentAlwaysVisible();
     } else {
         ResetAdultHands();
         ResetChildHands();
     }
+}
+
+static void RegisterAgeDependentEquipmentHook() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    OoT_GfxPatches_RunOrOwe("AgeDependentEquipment", AgeDependentEquipment_Pass, true); // #1829: OoT's owner only
+#else
+    AgeDependentEquipment_Pass(false);
+#endif
 
     COND_HOOK(OnSceneInit, CVAR_AGE_EQUIPMENT_VALUE, [](int32_t) { MakeEquipmentAlwaysVisible(); });
 }

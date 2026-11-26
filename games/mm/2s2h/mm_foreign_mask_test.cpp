@@ -97,7 +97,9 @@ extern "C" int MM_ForeignMaskTest_PressA(int item, int yIndex, int vanillaShows,
     return pressed;
 }
 
-/** MM's live save as a cross-game MM session runs it, human, all else zero. */
+/** MM's live save as a cross-game MM session runs it, human, all else zero. It
+ *  wipes the live save buffer both games share (src/common/unified_save.c), so a
+ *  read of OoT's live state must come before it. */
 extern "C" void MM_ForeignMaskTest_ArmLive(void) {
     std::memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0xFF;

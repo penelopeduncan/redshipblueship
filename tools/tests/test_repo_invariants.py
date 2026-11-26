@@ -526,9 +526,8 @@ def test_pause_save_default_has_one_reader():
 
     Red when any C or C++ reader reads the key itself (with 2Ship's `, 0)` or `, false)` it would disagree with the
     others), when the helper stops passing RSBS_MM_PAUSE_SAVE_DEFAULT, when a reader stops calling the helper, when
-    production code stores the key (a default is the value read when the key is absent, never a write), or when
-    applyPreset stops re-driving the key after ShipInit::InitAll (MMRegistrarCoverage FAIL 28 drives the re-drive
-    itself, so it stays green if only the call is dropped).
+    production code stores the key (a default is the value read when the key is absent, never a write). That a
+    preset re-drives the key's MM gates is test_bulk_cvar_writers_rearm_mm_registrars's (#1811).
     """
     reads, writes = _pause_save_key_access_sites()
     helper_body = _function_body(REPO_ROOT / PAUSE_SAVE_HELPER_FILE, PAUSE_SAVE_HELPER)
@@ -592,23 +591,203 @@ def test_pause_save_default_has_one_reader():
         "#1728: the hosted Pause Menu Save row must draw RSBS_MM_PAUSE_SAVE_DEFAULT when its key is unset"
     )
 
-    preset = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/Presets/Presets.cpp", "applyPreset")
-    init_all = preset.find("ShipInit::InitAll();")
-    assert init_all >= 0, "applyPreset no longer calls ShipInit::InitAll()"
-    redrive = preset.find("Presets_RedriveMmPauseSave();", init_all)
-    assert redrive >= 0, (
-        "#1728: applyPreset must call Presets_RedriveMmPauseSave() after ShipInit::InitAll(): InitAll's \"*\" never "
-        "reaches MM, so after a preset clears gEnhancements the row shows Pause Menu Save on while B closes the menu"
+
+BULK_CVAR_WRITE_GUARD = "ShipInitMmBulkCVarWrite"
+BULK_CVAR_BRIDGE = "games/mm/2s2h/ShipInitBridge_SingleExe.cpp"
+
+
+def _bulk_guard_encloses(body, decl, until):
+    """True when the block that declares the guard at `decl` is still open at `until` (its destructor runs after)."""
+    depth = 0
+    for i in range(decl, until):
+        depth += {"{": 1, "}": -1}.get(body[i], 0)
+        if depth < 0:
+            return False
+    return True
+
+
+def test_bulk_cvar_writers_rearm_mm_registrars():
+    """#1811: OoT's bulk CVar writers re-drive Majora's Mask's registrars for the keys they changed.
+
+    applyPreset and SoH_HandleConfigDrop end in ShipInit::InitAll / Init("*"), which the MM bridge never forwards, so
+    each declares the ShipInitMmBulkCVarWrite guard (ShipInit.hpp) inside an RSBS_SINGLE_EXECUTABLE block before its
+    first CVar write, in a block still open at its InitAll. Red when a writer drops the guard, declares it after a
+    write (those keys would be missed) or in a block that closes before the writes; when the old one-key
+    Presets_RedriveMmPauseSave comes back; when the bridge's close stops requesting the gfx reapply for the
+    Fix Out of Bounds Textures and Fix Circle Shadow Streaks keys or starts writing CVars; or when the keyed reapply
+    stops carrying the circle-shadow patch. MMShipInitDriver legs 7-8 and MMRegistrarCoverage FAIL 28-29 drive the
+    scope itself, so they stay green if only a writer's guard is dropped: this lock is what catches that.
+    """
+    writers = (
+        ("games/oot/soh/Enhancements/Presets/Presets.cpp", "applyPreset", "ShipInit::InitAll();"),
+        ("games/oot/soh/OTRGlobals.cpp", "SoH_HandleConfigDrop", 'ShipInit::Init("*");'),
     )
-    guard = preset.rfind("#ifdef RSBS_SINGLE_EXECUTABLE", init_all, redrive)
-    assert guard >= 0 and preset.find("#endif", guard, redrive) < 0, (
-        "#1728: applyPreset's Presets_RedriveMmPauseSave() call must sit in an RSBS_SINGLE_EXECUTABLE block"
+    for rel, name, init_call in writers:
+        body = _function_body(REPO_ROOT / rel, name)
+        decl = body.find(BULK_CVAR_WRITE_GUARD)
+        assert decl >= 0, f"#1811: {name} ({rel}) no longer declares {BULK_CVAR_WRITE_GUARD}"
+        ifdef = body.rfind("#ifdef RSBS_SINGLE_EXECUTABLE", 0, decl)
+        assert ifdef >= 0 and body.find("#endif", ifdef, decl) < 0, (
+            f"#1811: {name}'s {BULK_CVAR_WRITE_GUARD} must sit in an RSBS_SINGLE_EXECUTABLE block"
+        )
+        writes = [m.start() for m in re.finditer(r"\b(?:CVarClearBlock|CVarSet\w*|CVarClear|SetBlock)\s*\(", body)]
+        assert writes, f"#1811: the scan found no CVar write in {name}: it would pass vacuously"
+        assert decl < min(writes), f"#1811: {name} writes a CVar before it declares {BULK_CVAR_WRITE_GUARD}"
+        init = body.find(init_call)
+        assert init > decl, f"#1811: {name} no longer calls {init_call} after its {BULK_CVAR_WRITE_GUARD}"
+        assert _bulk_guard_encloses(body, decl, init), (
+            f"#1811: {name}'s {BULK_CVAR_WRITE_GUARD} closes before {init_call}, so it misses the writes"
+        )
+
+    for rel in ("games/oot/soh/Enhancements/Presets/Presets.cpp", "games/oot/soh/Enhancements/Presets/Presets.h",
+                "games/mm/2s2h/mm_registrar_coverage_test.cpp"):
+        text = _strip_comments((REPO_ROOT / rel).read_text(encoding="utf-8"))
+        assert "Presets_RedriveMmPauseSave" not in text, (
+            f"#1811: {rel} still names Presets_RedriveMmPauseSave; the bulk CVar write scope replaced it"
+        )
+
+    bridge = _strip_comments((REPO_ROOT / BULK_CVAR_BRIDGE).read_text(encoding="utf-8"))
+    gfx = re.search(r"kMmShipInitBridgeGfxPatchKeys\[\]\s*=\s*\{([^}]*)\}", bridge)
+    assert gfx, "#1811: the bridge no longer lists its gfx-patch keys (kMmShipInitBridgeGfxPatchKeys)"
+    for key in ('"gEnhancements.FixTexturesOOB"', '"gFixes.FixCircleShadowStreaks"',
+                "RSBS_CVAR_MM_GRAPHICS_FIX_GEOMETRY_SEAMS", "RSBS_CVAR_MM_GRAPHICS_NO_GEOMETRY_DISTANCE_CHECK"):
+        assert key in gfx.group(1), f"#1811: the bridge's gfx-patch keys no longer include {key}"
+    begin = _function_body(REPO_ROOT / BULK_CVAR_BRIDGE, "MM_ShipInit_BeginBulkCVarWrite")
+    end = _function_body(REPO_ROOT / BULK_CVAR_BRIDGE, "MM_ShipInit_EndBulkCVarWrite")
+    assert "S2H::ShipInit::Init(" in end and "MM_GfxPatches_Reapply()" in end, (
+        "#1811: the bulk close must drive changed keys through S2H::ShipInit::Init and gfx keys through "
+        "MM_GfxPatches_Reapply"
     )
-    redrive_body = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/Presets/Presets.cpp",
-                                  "Presets_RedriveMmPauseSave")
-    assert re.search(r"ShipInit::Init\(\s*%s\s*\)" % PAUSE_SAVE_KEY_DEFINE, redrive_body), (
-        "#1728: Presets_RedriveMmPauseSave must re-drive the key with ShipInit::Init(" + PAUSE_SAVE_KEY_DEFINE + ")"
+    assert "MmShipInitBridge_IsGfxPatchKey" in begin, (
+        "#1811: Begin must keep the gfx-patch keys out of the ShipInit snapshot (the circle-shadow registrar is not "
+        "owner-gated)"
     )
+    for fn_name, fn_body in (("Begin", begin), ("End", end)):
+        assert not re.search(r"\bCVar(?:Set|Clear|Save|Load)\w*\s*\(", fn_body), (
+            f"#1811: the bridge's bulk {fn_name} writes a CVar; a re-drive reads the keys, never writes them"
+        )
+    keyed = _function_body(REPO_ROOT / "games/mm/2s2h/MmGraphicsSingleExe.cpp", "ApplyKeyedPatches")
+    assert "PatchCircleShadowStreaks();" in keyed, (
+        "#1811: ApplyKeyedPatches must reapply the circle-shadow patch, so a bulk write's change to it lands under "
+        "MM's resource cache owner"
+    )
+
+
+OOT_AUTHENTIC_GFX = "games/oot/soh/Enhancements/cosmetics/authenticGfxPatches.cpp"
+
+
+def test_oot_authentic_gfx_patches_follow_bulk_writes_under_oot_owner():
+    """#1817: OoT's authentic gfx patches (Fix Out of Bounds Textures) follow a bulk CVar write, under OoT's owner.
+
+    No OoT registrar is keyed on gEnhancements.FixTexturesOOB, so a preset's InitAll never reapplied OoT's patches
+    while the #1811 scope reapplied MM's. The scope's guard now opens and closes OoT's half too, the row's callback goes
+    through the owner-gated reapply instead of patching under whichever game owns the resource cache, and OoT's frame
+    tick pays a pass owed while MM ran. MMShipInitDriver legs 9-10 (FAIL 16-19) drive the helpers; this lock is what
+    catches a guard, row or tick that stops calling them.
+    """
+    shipinit = _strip_comments((REPO_ROOT / "games/oot/soh/ShipInit.hpp").read_text(encoding="utf-8"))
+    guard = _block_after(shipinit, r"struct\s+ShipInitMmBulkCVarWrite\s*\{")
+    ctor = _block_after(guard, r"ShipInitMmBulkCVarWrite\s*\(\s*\)")
+    dtor = _block_after(guard, r"~ShipInitMmBulkCVarWrite\s*\(\s*\)")
+    assert "OoT_ShipInit_BeginBulkCVarWrite();" in ctor and "MM_ShipInit_BeginBulkCVarWrite();" in ctor, (
+        "#1817: ShipInitMmBulkCVarWrite's constructor must open both games' halves of the bulk CVar write"
+    )
+    assert "OoT_ShipInit_EndBulkCVarWrite()" in dtor and "MM_ShipInit_EndBulkCVarWrite()" in dtor, (
+        "#1817: ShipInitMmBulkCVarWrite's destructor must close both games' halves of the bulk CVar write"
+    )
+
+    end = _function_body(REPO_ROOT / OOT_AUTHENTIC_GFX, "OoT_ShipInit_EndBulkCVarWrite")
+    begin = _function_body(REPO_ROOT / OOT_AUTHENTIC_GFX, "OoT_ShipInit_BeginBulkCVarWrite")
+    assert "OoT_AuthenticGfxPatches_Reapply()" in end, (
+        "#1817: OoT's bulk close must reapply through the owner-gated OoT_AuthenticGfxPatches_Reapply"
+    )
+    assert not re.search(r"\bApplyAuthenticGfxPatches\s*\(", end), (
+        "#1817: OoT's bulk close calls ApplyAuthenticGfxPatches directly, bypassing the owner gate"
+    )
+    for fn_name, fn_body in (("Begin", begin), ("End", end)):
+        assert not re.search(r"\bCVar(?:Set|Clear|Save|Load)\w*\s*\(", fn_body), (
+            f"#1817: OoT's bulk {fn_name} writes a CVar; a re-drive reads the keys, never writes them"
+        )
+    reapply = _function_body(REPO_ROOT / OOT_AUTHENTIC_GFX, "OoT_AuthenticGfxPatches_Reapply")
+    assert re.search(r"Context_GetCurrentGame\(\)\s*!=\s*GAME_OOT", reapply), (
+        "#1817: OoT_AuthenticGfxPatches_Reapply must owe the pass while OoT is not the running game"
+    )
+
+    menu = _strip_comments((REPO_ROOT / "games/oot/soh/SohGui/SohMenuEnhancements.cpp").read_text(encoding="utf-8"))
+    row_at = menu.find('"Fix Out of Bounds Textures"')
+    assert row_at >= 0, "#1817: the Fix Out of Bounds Textures row is gone from SohMenuEnhancements.cpp"
+    row_end = menu.find("AddWidget(", row_at)
+    row = menu[row_at:row_end if row_end > row_at else len(menu)]
+    single = re.search(r"#ifdef RSBS_SINGLE_EXECUTABLE(.*?)#else", row, re.S)
+    assert single, "#1817: the Fix Out of Bounds Textures callback lost its RSBS_SINGLE_EXECUTABLE branch"
+    assert "OoT_AuthenticGfxPatches_Reapply()" in single.group(1), (
+        "#1817: the Fix Out of Bounds Textures callback must reapply through the owner-gated helper in single-exe"
+    )
+    assert not re.search(r"\bApplyAuthenticGfxPatches\s*\(", single.group(1)), (
+        "#1817: the Fix Out of Bounds Textures callback patches under whichever game owns the resource cache"
+    )
+
+    tick = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/cosmetics/CosmeticsEditor.cpp", "CosmeticsUpdateTick")
+    assert "OoT_AuthenticGfxPatches_ApplyOwed();" in tick, (
+        "#1817: CosmeticsUpdateTick must pay an OoT authentic gfx pass owed while MM ran"
+    )
+
+
+# (file, registrar, id, needsPlay): the four that read OoT's save wait for a play state; Mirrored World does not.
+OOT_OWED_GFX_REGISTRARS = (
+    ("games/oot/soh/Enhancements/Fixes/HammerHandFix.cpp", "RegisterHammerHandFix", "HammerHandFix", "true"),
+    ("games/oot/soh/Enhancements/Graphics/AgeDependentEquipment.cpp", "RegisterAgeDependentEquipmentHook",
+     "AgeDependentEquipment", "true"),
+    ("games/oot/soh/Enhancements/Graphics/ToTMedallions.cpp", "RegisterToTMedallions", "ToTMedallions", "true"),
+    ("games/oot/soh/Enhancements/randomizer/ColoredMapsAndCompasses.cpp", "RegisterColoredMapsAndCompasses",
+     "ColoredMapsAndCompasses", "true"),
+    ("games/oot/soh/Enhancements/ExtraModes/MirroredWorld.cpp", "RegisterMirroredWorld", "MirroredWorld", "false"),
+)
+
+
+def test_oot_gfx_registrars_owe_their_passes_while_mm_runs():
+    """#1829: OoT's display-list registrars patch under OoT's resource cache owner only.
+
+    Fix Hammer Hand, Equipment Always Visible, Temple of Time medallion colors, Colored Maps and Compasses and
+    Mirrored World patch from their registrars, which a row click, a preset or a dropped config runs while MM runs,
+    under MM's owner. Each registrar now goes through OoT_GfxPatches_RunOrOwe, OoT's frame tick pays what is owed, and
+    the Cosmetics Editor's boot pass of the authentic patches goes through #1817's owner-gated reapply. MMShipInitDriver
+    legs 11-15 (FAIL 20-30) drive the helper and the registrars; this lock catches a tick, an InitElement or a
+    registrar that stops calling them, which no ctest row reaches (the tick needs OoT's frame, InitElement a window).
+    """
+    cosmetics = REPO_ROOT / "games/oot/soh/Enhancements/cosmetics/CosmeticsEditor.cpp"
+    tick = _function_body(cosmetics, "CosmeticsUpdateTick")
+    assert "OoT_GfxPatches_ApplyOwed();" in tick, (
+        "#1829: CosmeticsUpdateTick must pay the OoT display-list passes owed while MM ran"
+    )
+    init = _function_body(cosmetics, "InitElement")
+    single = re.search(r"#ifdef RSBS_SINGLE_EXECUTABLE(.*?)#else", init, re.S)
+    assert single, "#1829: CosmeticsEditorWindow::InitElement lost its RSBS_SINGLE_EXECUTABLE branch"
+    assert "OoT_AuthenticGfxPatches_Reapply()" in single.group(1), (
+        "#1829: InitElement must owe the boot pass of the authentic patches through OoT_AuthenticGfxPatches_Reapply"
+    )
+    assert not re.search(r"\bApplyAuthenticGfxPatches\s*\(", single.group(1)), (
+        "#1829: InitElement patches at boot under whichever game owns the resource cache (MM's on an MM-first boot)"
+    )
+
+    for path, registrar, pass_id, needs_play in OOT_OWED_GFX_REGISTRARS:
+        body = _function_body(REPO_ROOT / path, registrar)
+        branch = re.search(r"#ifdef RSBS_SINGLE_EXECUTABLE(.*?)#else(.*?)#endif", body, re.S)
+        assert branch, f"#1829: {registrar} lost its RSBS_SINGLE_EXECUTABLE branch"
+        call = re.search(r'\bOoT_GfxPatches_RunOrOwe\(\s*"([^"]*)"\s*,\s*(\w+)\s*,\s*(true|false)\s*\)',
+                         branch.group(1))
+        assert call, f"#1829: {registrar} must run its patch pass through OoT_GfxPatches_RunOrOwe in single-exe"
+        assert call.group(1) == pass_id and call.group(3) == needs_play, (
+            f"#1829: {registrar} owes its pass as {call.group(1)!r} with needsPlay {call.group(3)}; expected "
+            f"{pass_id!r} with {needs_play}"
+        )
+        outside = body[:branch.start()] + body[branch.end():]
+        assert not re.search(r"\b%s\s*\(" % re.escape(call.group(2)), outside), (
+            f"#1829: {registrar} calls {call.group(2)} outside the owner gate"
+        )
+        assert not re.search(r"\bResourceMgr_\w*Patch\w*\s*\(", outside), (
+            f"#1829: {registrar} patches outside the owner gate"
+        )
 
 
 def test_titlesetup_invariant_sees_the_known_transitions():

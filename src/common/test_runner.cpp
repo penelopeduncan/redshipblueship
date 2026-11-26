@@ -704,6 +704,10 @@ int RandoTest_MapCompassText(void);
 // well-formed; area and trial names read back. Body in
 // games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_ItemTextTest_Run(void);
+// #1746: trick display names, Hard Ground Jumps description, quoted trick
+// cross-reference and spoiler-log enabledTricks lookup (SoH c021a0e8a,
+// 692ef416e). Body in games/oot/soh/oot_trick_text_1746_test.cpp. Return 0 on pass.
+int OoT_TrickText1746Test_Run(void);
 // #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
 // the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
 // Return 0 on pass.
@@ -4135,6 +4139,27 @@ TestResult Test_OoTItemText(void) {
     return OoT_ItemTextTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1746: trick display names, Hard Ground Jumps description, quoted trick
+// cross-reference and spoiler-log enabledTricks lookup (SoH c021a0e8a,
+// 692ef416e). Same bring-up as Test_MasterSwordRespawn (OTRGlobals' randomizer
+// context, needed by Settings::CreateOptions). Assertions in
+// games/oot/soh/oot_trick_text_1746_test.cpp.
+TestResult Test_OoTTrickText1746(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char arg0[] = "redship";
+    static char* fakeArgv[] = { arg0, nullptr };
+    InitOTRForMMFirstBoot(1, fakeArgv);
+
+    int rc = OoT_TrickText1746Test_Run();
+    printf("[TEST] %s: oot trick text 1746 rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1556: MM's AddLineBreaks is plain strings and a static width table, so no
 // bring-up either. Assertions in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
 TestResult Test_MMCustomMessageLineBreaks(void) {
@@ -7296,16 +7321,22 @@ static TestResult Test_MenuComboSection(void) {
 
 // Backport packet #1733 (menu robustness): ExcludedLocations round-trip, MQ Dungeons
 // visibility under Selection Only / All, Audio API backend filtering, slider label
-// suffix stripping. ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
-extern "C" int OoT_MenuRobustness_RunHeadless(void);
+// suffix stripping, checkbox label wrapping past a hidden ID suffix (its call sites read
+// from source). ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
+extern "C" int OoT_MenuRobustness_RunHeadless(const char* sourceDir);
 
 static TestResult Test_OoTMenuRobustness(void) {
+#ifndef RSBS_SOURCE_DIR
+    printf("[TEST] FAIL (oot-menu-robustness): RSBS_SOURCE_DIR is undefined\n");
+    return TEST_FAIL;
+#else
     auto ctx = CreateHarnessStyleContext();
     if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
         printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
         return TEST_FAIL;
     }
-    return OoT_MenuRobustness_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+    return OoT_MenuRobustness_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
+#endif
 }
 
 // games/oot/soh/soh_presets_folder_test.cpp (#1210): a non-JSON file in the
@@ -9643,8 +9674,9 @@ TestResult Test_SharedWarpSongsEdges(void) {
     return SharedWarpSongsRow(-1);
 }
 
-// #1587 stage A: one copy of the Shared Sun's Song and the Shared Saria's Song per
-// Shuffle Songs value (Off is stage B's), shared-warp-songs-one-copy's bring-up.
+// #1587 stages A and B: one copy of the Shared Sun's Song and the Shared Saria's Song
+// per Shuffle Songs value (Off: on OoT's default check, stage B),
+// shared-warp-songs-one-copy's bring-up.
 static TestResult SharedSunSariaOneCopyRow(int shuffleSongs) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -9655,6 +9687,9 @@ static TestResult SharedSunSariaOneCopyRow(int shuffleSongs) {
     static char* ssocArgv[] = { ssocArg0, nullptr };
     InitOTRForMMFirstBoot(1, ssocArgv);
     return SharedSunSariaOneCopy_Run(shuffleSongs);
+}
+TestResult Test_SharedSunSariaOneCopyOff(void) {
+    return SharedSunSariaOneCopyRow(0);
 }
 TestResult Test_SharedSunSariaOneCopySongLocations(void) {
     return SharedSunSariaOneCopyRow(1);
@@ -10752,6 +10787,21 @@ extern "C" int OoT_LogNoise_RunHeadless(void);
 
 static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// games/oot/soh/oot_autosave_load_clock_test.cpp (#1735, SoH d46bfd971): the
+// interval autosave registers an option-gated OnLoadGame hook that resets its
+// clock. Display-free shared bring-up because the row reads, writes and clears
+// CVAR_ENHANCEMENT("Autosave").
+extern "C" int OoT_AutosaveLoadClock_RunHeadless(void);
+
+static TestResult Test_OoTAutosaveLoadClock(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_AutosaveLoadClock_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // games/oot/soh/oot_older_save_meta_test.cpp (SoH #7434): the file select's
@@ -11884,10 +11934,10 @@ const TestDescriptor gTests[] = {
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
     // #1733: ROM-free, display-free menu robustness checks (ExcludedLocations
     // round-trip, MQ location visibility, Audio API backend filtering, slider
-    // label suffix stripping).
+    // label suffix stripping, checkbox label wrapping past a hidden ID suffix).
     { "oot-menu-robustness",
-      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, and slider label "
-      "suffix stripping (#1733)",
+      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, slider label "
+      "suffix stripping, and checkbox labels wrapped without their hidden ID suffix (#1733)",
       Test_OoTMenuRobustness },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },
@@ -12473,8 +12523,14 @@ const TestDescriptor gTests[] = {
       "With every warp-song rule on and Shuffle Songs Anywhere, each shared warp song is one bag pair row over both "
       "worlds, never Link's Pocket (#1169 XW10)",
       Test_SharedWarpSongsOneCopyAnywhere },
-    // #1587 stage A: the Shared Sun's Song and Shared Saria's Song, one copy each.
-    // Each needs a paired creation; skipped by `--test all` below like its siblings.
+    // #1587: the Shared Sun's Song and Shared Saria's Song, one copy each (stage A:
+    // Song Locations, Dungeon Rewards, Anywhere; stage B: under Off each stays on
+    // OoT's default check). Each needs a paired creation; skipped by `--test all`
+    // below like its siblings.
+    { "shared-sun-saria-one-copy-off",
+      "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs Off, each stays on OoT's default check "
+      "(Royal Family's Tomb, Saria), no copy in MM, one fixed credit OoT -> MM each, delivered (#1587)",
+      Test_SharedSunSariaOneCopyOff },
     { "shared-sun-saria-one-copy-song-locations",
       "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs at Song Locations, each is one bag "
       "pair row over both worlds and MM's own rows resolve on (#1587)",
@@ -12558,6 +12614,10 @@ const TestDescriptor gTests[] = {
       "item; articles sit in their language's slot; colour codes are well-formed; area and trial names read back "
       "through the translation maps (#1746)",
       Test_OoTItemText },
+    { "oot-trick-text-1746",
+      "OoT trick display names, Hard Ground Jumps description, cross-referenced trick description, and spoiler-log "
+      "enabledTricks lookup match SoH c021a0e8a and 692ef416e (#1746)",
+      Test_OoTTrickText1746 },
     { "mm-custom-message-line-breaks",
       "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
       "one, adds no width for an overflowing space, and loses no letter (#1556)",
@@ -12993,6 +13053,10 @@ const TestDescriptor gTests[] = {
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
+    { "oot-autosave-load-clock",
+      "Autosave registers an option-gated OnLoadGame hook that resets lastSaveTimestamp to GetUnixTimestamp() "
+      "(#1735, SoH d46bfd971)",
+      Test_OoTAutosaveLoadClock },
     { "oot-older-save-meta",
       "The file select reads an older OoT save (magicAcquired/doubleMagic, a numeric or absent isMasterQuest, no "
       "sohStats) instead of throwing and quarantining it (SoH #7434)",
@@ -13263,6 +13327,14 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "Minuet is then played in Majora's Mask and crosses to Ocarina of Time as in the unshared row, OoT's own "
       "Minuet still held at the arrival",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET_SHARED },
+    { "int-mm-shared-sun-saria",
+      "int-mm-warp-song-minuet with the Shared Sun's Song and the Shared Saria's Song frozen on (#1587, the in-game "
+      "rows of stages T and A; the hidden rules through the test reveal): OoT is given its own two songs before the "
+      "Happy Mask Shop door and MM's arrival apply must give both; in South Clock Town the Sun's Song is played, its "
+      "played text reads 'You played the Sun's Song!' in 0x1B78's box, and the speed-up runs the clock past 18:00 and "
+      "puts the time speed back; Saria's Song is played and ends with no 0x1B95 redirect and no restricted mode, still "
+      "owned; then the Minuet crosses as in the unshared row, OoT still holding both songs at the arrival",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_SHARED_SUN_SARIA },
     { "int-mm-shuffle-ocarina",
       "The paired first crossing with Majora's Mask's Shuffle Ocarina on and Moon Crash Behavior on Last Save "
       "(#1671 B2): the first MM arrival holds the Song of Time and no ocarina, its clock runs at the scene's speed "
@@ -13422,6 +13494,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "scrub-text-hint-setting") == 0 ||
                 strcmp(gTests[i].name, "map-compass-text") == 0 || strcmp(gTests[i].name, "bombchu-drop-rule") == 0 ||
                 strcmp(gTests[i].name, "master-sword-respawn") == 0 ||
+                strcmp(gTests[i].name, "oot-trick-text-1746") == 0 ||
                 strcmp(gTests[i].name, "rando-warp-arrival") == 0 || strcmp(gTests[i].name, "rando-grotto-void") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-no-heal") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||

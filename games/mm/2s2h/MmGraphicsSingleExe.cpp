@@ -20,12 +20,20 @@ namespace {
 int sGfxPatchesApplied = 0;
 // 1 when a patch key changed while MM was not the running game; MM_Game_Resume reapplies it under MM's owner.
 int sGfxPatchesPending = 0;
+// #1811: every MM_GfxPatches_Reapply call, counted before its early returns. Read only by
+// MM_GfxPatchesTest_ReapplyRequests (mm_registrar_coverage_test.cpp FAIL 29), which in a ROM-free row cannot see
+// sGfxPatchesPending: the reapply returns at the asset-phase check before it sets it.
+int sGfxPatchesReapplyRequests = 0;
 
-// The patches the three keys choose, each an idempotent patch-or-unpatch on its key's current value
-// (AuthenticGfxPatches.cpp). The other authentic patches are unconditional and were applied once for good.
+// The patches the four keys choose, each an idempotent patch-or-unpatch on its key's current value
+// (AuthenticGfxPatches.cpp). The other authentic patches are unconditional and were applied once for good. #1811:
+// Fix Circle Shadow Streaks (gFixes.FixCircleShadowStreaks) is the fourth. A bulk CVar write on OoT's side
+// (ShipInitBridge_SingleExe.cpp) reapplies it through here rather than through its registrar, whose body is not
+// owner-gated, so a change made while OoT runs lands in MM's copy of gameplay_keep at MM's next resume.
 void ApplyKeyedPatches() {
     GfxPatcher_ApplyOverflowTexturePatches();
     GfxPatcher_ApplyGeometryIssuePatches();
+    PatchCircleShadowStreaks();
 }
 } // namespace
 
@@ -54,8 +62,9 @@ extern "C" void MM_MotionBlur_SetDynamicAlpha(int alpha) {
 }
 
 extern "C" int MM_GfxPatches_Reapply(void) {
+    sGfxPatchesReapplyRequests++;
     if (!sGfxPatchesApplied) {
-        // MM's asset phase has not run in this process; it reads the three keys itself when it does.
+        // MM's asset phase has not run in this process; it reads the four keys itself when it does.
         return 0;
     }
     if (Context_GetCurrentGame() != GAME_MM) {
@@ -79,4 +88,8 @@ extern "C" int MM_GfxPatches_ApplyPending(void) {
     sGfxPatchesPending = 0;
     ApplyKeyedPatches();
     return 1;
+}
+
+extern "C" int MM_GfxPatchesTest_ReapplyRequests(void) {
+    return sGfxPatchesReapplyRequests;
 }

@@ -34,7 +34,9 @@ extern "C" s16 func_8001F404(s16 dropId);
 /** OoT's live save as a real loaded file holding the bombchu item and @p count
  *  bombchus (the bag owned). GAMEMODE_NORMAL is what Combo_SaveIsLiveFile
  *  requires before the harvest or a pickup credit does anything. Everything
- *  else zero, so the harvest offers no other kind a nonzero value. */
+ *  else zero, so the harvest offers no other kind a nonzero value. It wipes the
+ *  live save buffer both games share (src/common/unified_save.c), so a read of
+ *  MM's live state must come before it. */
 extern "C" void OoT_SharedBombchuTest_ArmLive(int count) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0;

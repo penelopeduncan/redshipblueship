@@ -41,7 +41,9 @@ void RandomizerOnGameFrameUpdateHandler();
  *  Combo_SaveIsLiveFile requires before OoT_HarvestSharedResources does anything.
  *  Wallet tier @p tier, @p rupees in the wallet, and the possession flag @p
  *  hasWallet (0 = Shuffle Child's Wallet on and the child wallet not found).
- *  Everything else zero, so the harvest offers no other kind a nonzero value. */
+ *  Everything else zero, so the harvest offers no other kind a nonzero value.
+ *  It wipes the live save buffer both games share (src/common/unified_save.c),
+ *  so a read of MM's live state must come before it. */
 extern "C" void OoT_SharedWalletTest_ArmLive(int tier, int rupees, int hasWallet) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0;
@@ -56,7 +58,8 @@ extern "C" void OoT_SharedWalletTest_ArmLive(int tier, int rupees, int hasWallet
 
 /** OoT's live save as a VANILLA (non-randomizer) loaded file: the wallet kinds
  *  are armed for every world, but RAND_INF_HAS_WALLET is never set outside the
- *  randomizer, so the flag stays clear here by design. */
+ *  randomizer, so the flag stays clear here by design. It wipes the live save
+ *  buffer both games share, as OoT_SharedWalletTest_ArmLive does. */
 extern "C" void OoT_SharedWalletTest_ArmLiveVanilla(int tier, int rupees) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0;

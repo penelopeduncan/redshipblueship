@@ -868,7 +868,8 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
     sGameplayVariant = variant;
     if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL ||
         variant == GP_VARIANT_FOREIGN_HOLD_QUIT || variant == GP_VARIANT_MM_SHUFFLE_OCARINA ||
-        variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+        variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED ||
+        variant == GP_VARIANT_MM_SHARED_SUN_SARIA) {
         // Before the first game boots, so the creation's own lines are kept.
         if (!IntegrationTest_StderrCaptureStart()) {
             fprintf(stderr, "[PFC] WARNING: the stderr capture could not start; every line assertion will fail\n");
@@ -887,13 +888,19 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
             fprintf(stderr, "[PFC] variant: Majora's Mask's Shuffle Ocarina, Day 3 midnight and the moon crash "
                             "(#1671 B2), riding the paired first crossing\n");
         }
-        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED ||
+            variant == GP_VARIANT_MM_SHARED_SUN_SARIA) {
             fprintf(stderr, "[PFC] variant: Minuet of Forest played in Majora's Mask, crossing to Ocarina of Time "
                             "(#1169 XW13), riding the paired first crossing\n");
         }
         if (variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
             fprintf(stderr, "[PFC] variant: the SHARED Minuet of Forest (#1169 XW14): learnt in Ocarina of Time "
                             "only, carried to Majora's Mask by the shared family, then played there\n");
+        }
+        if (variant == GP_VARIANT_MM_SHARED_SUN_SARIA) {
+            fprintf(stderr, "[PFC] variant: the SHARED Sun's Song and Saria's Song (#1587, stages T and A): learnt in "
+                            "Ocarina of Time only, carried to Majora's Mask by the shared family, played there before "
+                            "the Minuet\n");
         }
         fflush(stderr);
     }
@@ -908,7 +915,8 @@ bool IntegrationTest_PairedFirstCrossing(void) {
            (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL ||
             sGameplayVariant == GP_VARIANT_FOREIGN_HOLD_QUIT || sGameplayVariant == GP_VARIANT_MM_SHUFFLE_OCARINA ||
             sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
-            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
+            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED ||
+            sGameplayVariant == GP_VARIANT_MM_SHARED_SUN_SARIA);
 }
 
 bool IntegrationTest_SoaringToOwl(void) {
@@ -925,11 +933,16 @@ bool IntegrationTest_MMShuffleOcarina(void) {
 
 bool IntegrationTest_MMWarpSongMinuet(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && (sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
-                                                        sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
+                                                        sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED ||
+                                                        sGameplayVariant == GP_VARIANT_MM_SHARED_SUN_SARIA);
 }
 
 bool IntegrationTest_MMWarpSongMinuetShared(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED;
+}
+
+bool IntegrationTest_MMSharedSunSaria(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_MM_SHARED_SUN_SARIA;
 }
 
 bool IntegrationTest_PairedSkipCreation(void) {

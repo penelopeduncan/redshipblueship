@@ -2005,8 +2005,9 @@ if(BUILD_TESTING)
     redship_add_test(NAME SetMenuCount COMMAND redship --test setmenu-count)
     # Backport packet #1733 (menu robustness): ExcludedLocations trailing-comma
     # round-trip, MQ Dungeons selection visibility, Audio API backend filtering,
-    # and slider label suffix stripping. Default redship tier;
-    # games/oot/soh/oot_menu_robustness_test.cpp.
+    # slider label suffix stripping, and checkbox labels wrapped without their
+    # hidden ID suffix (call sites read from source, RSBS_SOURCE_DIR). Default
+    # redship tier; games/oot/soh/oot_menu_robustness_test.cpp.
     redship_add_test(NAME OoTMenuRobustness COMMAND redship --test oot-menu-robustness)
     # #1210: SoH's LoadPresets (a boot-time RegisterMenuInitFunc) parsed every
     # entry of presets/ as JSON with no filter and no catch, so a stray
@@ -3973,6 +3974,13 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # own two rows resolved on, the goal proven. The -anywhere row runs a second
     # generation under Item Pool Plentiful, pinning the #1653 trim of OoT's spare (#1587
     # question 13 is open). End-to-end only: MMSharedSongPoolSkip is the pool skip's gate.
+    # #1587 stage B: the -off row, one paired generation under Shuffle Songs Off: each song
+    # on OoT's default check, no MM copy, no bag row, one fixed credit OoT -> MM each,
+    # delivered in an exit round and withheld with Royal Family's Tomb forbidden.
+    redship_add_test(NAME SharedSunSariaOneCopyOff COMMAND redship --test shared-sun-saria-one-copy-off
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedSunSariaOneCopySongLocations
         COMMAND redship --test shared-sun-saria-one-copy-song-locations
         LABEL rando
@@ -4115,6 +4123,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # item and hint tables, no seed: default tier.
     # games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME OoTItemText COMMAND redship --test oot-item-text)
+    # #1746: OoT trick display names, Hard Ground Jumps description, quoted trick
+    # cross-reference and spoiler-log enabledTricks lookup (SoH c021a0e8a,
+    # 692ef416e). Bring-up calls InitOTRForMMFirstBoot because CreateOptions reads
+    # OTRGlobals::Instance (same as MasterSwordRespawn): rando tier.
+    # games/oot/soh/oot_trick_text_1746_test.cpp.
+    redship_add_test(NAME OoTTrickText1746 COMMAND redship --test oot-trick-text-1746
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
     # newlines and box breaks land, the count restarting at an explicit box break,
     # and no width for an overflowing space. Plain strings and MM's static font
@@ -4717,6 +4734,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # session), and the item queue logged every offer of a give the player could
     # not take yet. Display-free and ROM-free. games/oot/soh/oot_log_noise_test.cpp.
     redship_add_test(NAME OoTLogNoise COMMAND redship --test oot-log-noise)
+    # #1735 (SoH d46bfd971, upstream PR 6298): Autosave registers an option-gated
+    # OnLoadGame hook that resets lastSaveTimestamp to GetUnixTimestamp().
+    # Display-free and ROM-free. games/oot/soh/oot_autosave_load_clock_test.cpp.
+    redship_add_test(NAME OoTAutosaveLoadClock COMMAND redship --test oot-autosave-load-clock)
     # SoH #7434: the file select's meta read (SaveManager::StartupCheckAndInitMetaImpl)
     # takes an older OoT save, with magicAcquired/doubleMagic, a numeric or absent
     # isMasterQuest, or no sohStats section, instead of throwing a json type_error
@@ -5461,6 +5482,30 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
+    # #1587, the in-game rows of stages T (#1808) and A (#1810): the unshared
+    # Minuet row with the Shared Sun's Song and the Shared Saria's Song frozen on
+    # (their keys in memory and the TEST ONLY reveal Combo_ComboItemRules2RevealForTest,
+    # both put back at the verdict; both bits stay inside RSBS_XITEM2_HIDDEN). OoT
+    # is given its own two songs before the Happy Mask Shop door; at PREPARE MM's
+    # arrival apply must have given both (the give record), MM's own rows are
+    # forced on (Foreign.cpp step 2d) and SariasSongHint registered. The drive
+    # then plays the Sun's Song: matched, the played text 0x004B in 0x1B78's box
+    # with stage T's bytes (0x1B7D never seen), SPEED_TIME with R_TIME_SPEED 400,
+    # the clock past 18:00 and the speed put back; then Saria's Song: matched, no
+    # 0x1B95, no restricted mode, no custom text, still owned; then the Minuet,
+    # as the unshared row, and OoT must still hold both songs at the arrival.
+    # Question 3 (blockSunsSong) is recorded only: a same-scene re-arm count, no
+    # crossing inside it. One row for both songs: each costs a whole boot,
+    # generation and creation. About 600 MM frames more than the Minuet row (two
+    # more plays and a speed-up of about 100 frames), so the same 600 s timeout;
+    # MM's frame watchdog gets 3600 frames more for this variant only. A crash
+    # skips the cleanup: clear gCombo.Rando.SharedSongSun, SharedSongSarias and
+    # this row's other keys from the staged config by hand, as for XW14.
+    redship_add_test(NAME IntMMSharedSunSaria
+        COMMAND redship --integration-test int-mm-shared-sun-saria
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
@@ -5468,8 +5513,8 @@ crossing to refuse (#954).")
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
         IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntForeignHoldQuit
-        IntMMWarpSongMinuet IntMMShuffleOcarina IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM
-        PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntMMWarpSongMinuet IntMMShuffleOcarina IntMMWarpSongMinuetShared IntMMSharedSunSaria IntSongHostOoT
+        IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.

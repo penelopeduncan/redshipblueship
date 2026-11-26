@@ -201,11 +201,17 @@ void RegisterDebugMode() {
         // config the test gates share must not collect keys a callback stored. And MM_gPlayState dangles while OoT
         // runs (SoH's Debug Mode row reaches this registrar then too), so frame advance is switched off through the
         // bridge, which answers only while MM is the running game.
+        // RSBS (#1817): the three Prevent registrars are keyed on Debug Mode too and run after this one in the same
+        // Init, but ObjectDependency.cpp's is keyed only on its own key, so the clear re-drives it, as a click would.
+        const bool objectDependencyWasSet = CVarGetInteger("gDeveloperTools.DisableObjectDependency", 0) != 0;
         for (const char* key : { CVAR_PREVENT_ACTOR_UPDATE_NAME, CVAR_PREVENT_ACTOR_DRAW_NAME,
                                  CVAR_PREVENT_ACTOR_INIT_NAME, "gDeveloperTools.DisableObjectDependency" }) {
             if (CVarGetInteger(key, 0) != 0) {
                 CVarClear(key);
             }
+        }
+        if (objectDependencyWasSet) {
+            ShipInit::Init("gDeveloperTools.DisableObjectDependency");
         }
         if (int32_t* frameAdvanceEnabled = MM_DevTools_FrameAdvanceEnabled()) {
             *frameAdvanceEnabled = false;
