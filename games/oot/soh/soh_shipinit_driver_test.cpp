@@ -258,6 +258,7 @@ struct ShipInitDriverOwedGfxRestore {
             ShipInit::Init(k.key); // re-arms the hook for the value found, makes no patch
         }
         mirror.Put();
+        ShipInit::Init(kMirroredWorldKey); // #1834: AudioSettings caches this key; refresh it from the restored value
         mode.Put();
         probe.Put();
         OoT_MirroredWorldTest_RunRegistrar(); // the mode's hook as found
