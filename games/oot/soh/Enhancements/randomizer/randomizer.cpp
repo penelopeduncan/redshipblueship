@@ -53,6 +53,7 @@ extern void func_80B8FE00(ObjBean*); // trigger planting
 #include "shared_resources.h" // src/common — #1561: Combo_SharedSongOffGiveBecomesJunk
 #include "triforce_hunt.h"    // src/common — ADR 0010 O10: the combo requirement a paired hunt ends on
 #include "warp_song_items.h"  // src/common — #1561: RSBS_SONG_SPOTS_*
+#include "rando_id_list.h"    // src/common — #1819: RandoIdList_ParseField
 // soh/Enhancements/randomizer/ComboGoalEndingOoT.cpp — #768: may the triforce
 // piece's win arm end OoT under the frozen combo goal?
 extern "C" int OoT_ComboGoal_TriforceHuntEnds(int ownModeIsWin);
@@ -4542,17 +4543,48 @@ void Rando_ReadMenuExcludesAndTricks(std::set<RandomizerCheck>& excludedLocation
     // todo: this efficently when we build out cvar array support
     std::stringstream excludedLocationStringStream(CVarGetString(CVAR_RANDOMIZER_SETTING("ExcludedLocations"), ""));
     std::string excludedLocationString;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1819: a field that is not a check id (empty, a word, "12abc", an id this
+    // build does not have) is skipped instead of throwing out of the generation.
+    int droppedExcludes = 0;
+    while (getline(excludedLocationStringStream, excludedLocationString, ',')) {
+        int32_t rc = 0;
+        if (RandoIdList_ParseField(excludedLocationString.data(), excludedLocationString.size(), RC_UNKNOWN_CHECK + 1,
+                                   RC_MAX, &rc)) {
+            excludedLocations.insert((RandomizerCheck)rc);
+        } else if (!excludedLocationString.empty()) {
+            droppedExcludes++;
+        }
+    }
+#else
     while (getline(excludedLocationStringStream, excludedLocationString, ',')) {
         excludedLocations.insert((RandomizerCheck)std::stoi(excludedLocationString));
     }
+#endif
 
     // todo: better way to sort out linking tricks rather than name
 
     std::stringstream enabledTrickStringStream(CVarGetString(CVAR_RANDOMIZER_SETTING("EnabledTricks"), ""));
     std::string enabledTrickString;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    int droppedTricks = 0;
+    while (getline(enabledTrickStringStream, enabledTrickString, ',')) {
+        int32_t rt = 0;
+        if (RandoIdList_ParseField(enabledTrickString.data(), enabledTrickString.size(), 0, RT_MAX, &rt)) {
+            enabledTricks.insert((RandomizerTrick)rt);
+        } else if (!enabledTrickString.empty()) {
+            droppedTricks++;
+        }
+    }
+    if (droppedExcludes != 0 || droppedTricks != 0) {
+        SPDLOG_WARN("Seed generation: skipped {} excluded-location and {} trick field(s) that are not ids",
+                    droppedExcludes, droppedTricks);
+    }
+#else
     while (getline(enabledTrickStringStream, enabledTrickString, ',')) {
         enabledTricks.insert((RandomizerTrick)std::stoi(enabledTrickString));
     }
+#endif
 
     // Update the visibilitiy before removing conflicting excludes (in case the locations tab wasn't viewed)
     RandomizerCheckObjects::UpdateImGuiVisibility();
@@ -4574,8 +4606,9 @@ void GenerateRandomizerImgui(std::string seed = "") {
     // already persisted as 1 by the SaveConsoleVariablesNextFrame above, leaving the
     // menu and the file-select screen believing a generation was still in flight and
     // the thread never joinable. The whole body has to be covered, not just the
-    // GenerateRando call: the std::stoi calls below parse persisted CVar strings and
-    // throw std::invalid_argument on any token that is not a number. A failed attempt
+    // GenerateRando call: the settings application can throw too. (The exclude and
+    // trick lists are parsed without throwing in the single-exe build since #1819:
+    // Rando_ReadMenuExcludesAndTricks skips malformed fields.) A failed attempt
     // must clear the flag and hand the thread back exactly like a successful one, so
     // the fall-through below runs in every case.
     try {

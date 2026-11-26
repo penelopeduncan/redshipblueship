@@ -18,6 +18,7 @@ extern "C" {
 #include "seed_package.h"          // src/common — #1044: the seed package Generate writes and a file binds
 #include "combo_settings_view.h"   // src/common — #1367: the rung [Both Games] Logic shows
 #include "foreign_items.h"         // src/common — #1367: Combo_LogicRungProves
+#include "rando_id_list.h"         // src/common — #1819: RandoIdList_ParseField
 #endif
 
 namespace SohGui {
@@ -158,11 +159,38 @@ std::set<RandomizerCheck> ParseExcludedLocations(const char* raw) {
     }
     std::stringstream excludedLocationStringStream(raw);
     std::string excludedLocationToken;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1819: a field that is not a check id (a word, "12abc", an id this build does
+    // not have) is skipped rather than thrown out of the menu draw. The page reads
+    // the list every frame while a save is loaded, so the warning is written once
+    // per distinct malformed list, not once per frame.
+    static std::string sWarnedMalformedExcludes;
+    int droppedExcludes = 0;
+    while (getline(excludedLocationStringStream, excludedLocationToken, ',')) {
+        int32_t rc = 0;
+        if (excludedLocationToken.empty()) {
+            continue;
+        }
+        if (RandoIdList_ParseField(excludedLocationToken.data(), excludedLocationToken.size(), RC_UNKNOWN_CHECK + 1,
+                                   RC_MAX, &rc)) {
+            parsed.insert((RandomizerCheck)rc);
+        } else {
+            droppedExcludes++;
+        }
+    }
+    if (droppedExcludes == 0) {
+        sWarnedMalformedExcludes.clear();
+    } else if (sWarnedMalformedExcludes != raw) {
+        sWarnedMalformedExcludes = raw;
+        SPDLOG_WARN("Excluded Locations: skipped {} field(s) that are not check ids", droppedExcludes);
+    }
+#else
     while (getline(excludedLocationStringStream, excludedLocationToken, ',')) {
         if (!excludedLocationToken.empty()) { // skip empty fields: std::stoi("") throws
             parsed.insert((RandomizerCheck)std::stoi(excludedLocationToken));
         }
     }
+#endif
     return parsed;
 }
 
@@ -444,15 +472,44 @@ void UpdateMenuTricks() {
     std::stringstream enabledTrickStringStream(CVarGetString(CVAR_RANDOMIZER_SETTING("EnabledTricks"), ""));
     std::string enabledTrickString;
     enabledTricks.clear();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1819: a field that is not a trick id is skipped rather than thrown out of the
+    // menu draw (this runs only when the page is marked dirty, so one line per read).
+    int droppedTricks = 0;
+    int droppedGlitches = 0;
+    while (getline(enabledTrickStringStream, enabledTrickString, ',')) {
+        int32_t rt = 0;
+        if (RandoIdList_ParseField(enabledTrickString.data(), enabledTrickString.size(), 0, RT_MAX, &rt)) {
+            enabledTricks.insert((RandomizerTrick)rt);
+        } else if (!enabledTrickString.empty()) {
+            droppedTricks++;
+        }
+    }
+#else
     while (getline(enabledTrickStringStream, enabledTrickString, ',')) {
         enabledTricks.insert((RandomizerTrick)std::stoi(enabledTrickString));
     }
+#endif
     std::stringstream enabledGlitchStringStream(CVarGetString(CVAR_RANDOMIZER_SETTING("EnabledGlitches"), ""));
     std::string enabledGlitchString;
     enabledGlitches.clear();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    while (getline(enabledGlitchStringStream, enabledGlitchString, ',')) {
+        int32_t rt = 0;
+        if (RandoIdList_ParseField(enabledGlitchString.data(), enabledGlitchString.size(), 0, RT_MAX, &rt)) {
+            enabledGlitches.insert((RandomizerTrick)rt);
+        } else if (!enabledGlitchString.empty()) {
+            droppedGlitches++;
+        }
+    }
+    if (droppedTricks != 0 || droppedGlitches != 0) {
+        SPDLOG_WARN("Tricks: skipped {} trick and {} glitch field(s) that are not ids", droppedTricks, droppedGlitches);
+    }
+#else
     while (getline(enabledGlitchStringStream, enabledGlitchString, ',')) {
         enabledGlitches.insert((RandomizerTrick)std::stoi(enabledGlitchString));
     }
+#endif
 }
 
 void DrawTricksMenu(WidgetInfo& info) {
