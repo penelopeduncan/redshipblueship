@@ -1,6 +1,9 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/ResourceManagerHelpers.h"
 #include "soh/ShipInit.hpp"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "soh/Enhancements/cosmetics/OwedGfxPatches.h" // #1829: OoT_GfxPatches_RunOrOwe
+#endif
 
 extern "C" {
 #include "macros.h"
@@ -25,12 +28,20 @@ static void ResetHammerHand() {
     ResourceMgr_UnpatchGfxByName(gLinkAdultLeftHandHoldingHammerNearDL, "hammerHand2");
 }
 
-static void RegisterHammerHandFix() {
+static void HammerHandFix_Pass(bool /*owed*/) {
     if (CVAR_HAMMER_HAND_VALUE) {
         FixHammerHand();
     } else {
         ResetHammerHand();
     }
+}
+
+static void RegisterHammerHandFix() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    OoT_GfxPatches_RunOrOwe("HammerHandFix", HammerHandFix_Pass, true); // #1829: OoT's owner only; owed while MM runs
+#else
+    HammerHandFix_Pass(false);
+#endif
 
     COND_HOOK(OnSceneInit, CVAR_HAMMER_HAND_VALUE, [](int32_t) { FixHammerHand(); });
 }

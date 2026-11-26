@@ -149,6 +149,8 @@ games/oot/soh/Enhancements/controls/OcarinaNoteMappingCleanup.h
 games/oot/soh/Enhancements/cosmetics/CustomLogoTitle.cpp
 games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMm.cpp
 games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMm.h
+games/oot/soh/Enhancements/cosmetics/OwedGfxPatches.cpp
+games/oot/soh/Enhancements/cosmetics/OwedGfxPatches.h
 games/oot/soh/Enhancements/randomizer/ForeignItemsSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/ShopRestockSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/HintAreaOoT.cpp
