@@ -17,6 +17,12 @@
  *       `##` ID suffix no longer counts toward the line length, and reaches ImGui intact.
  *   (f) From source (RSBS_SOURCE_DIR): Menu::MenuDrawItem's two checkbox cases draw
  *       their label through WrappedLabel, not WrappedText.
+ *   (g) #1819: a malformed field in the ExcludedLocations, EnabledTricks or
+ *       EnabledGlitches list (empty, a word, "12abc", out of int range, outside the
+ *       enum) is skipped without throwing: RandoIdList_ParseField (src/common), the
+ *       Locations page's ParseExcludedLocations, the Generate button's
+ *       Rando_ReadMenuExcludesAndTricks (over leg (b)'s bring-up) and the Tricks
+ *       page's UpdateMenuTricks. Runs after (b), whose Rando::Context it reuses.
  */
 
 #include <cstdint>
@@ -40,6 +46,8 @@
 #include "soh/Enhancements/randomizer/item_location.h"
 #include "soh/Enhancements/randomizer/randomizer_check_objects.h"
 
+#include "rando_id_list.h" // src/common — #1819: RandoIdList_ParseField
+
 extern "C" {
 // entrance.cpp: ROM-free region graph + Rando::Context bring-up.
 int Rando_InitRegionGraphForTest(void);
@@ -51,7 +59,12 @@ int32_t PackMQDungeonSetting(int32_t mqDungeons, int32_t mqDungeonCount);
 bool ShouldRefreshLocationsMenu(bool dirty, int32_t currMQSetting, int32_t prevMQSetting, bool saveLoaded);
 std::string FormatExcludedLocations(const std::set<RandomizerCheck>& excluded);
 std::set<RandomizerCheck> ParseExcludedLocations(const char* raw);
+void UpdateMenuTricks(); // #1819: the Tricks page's read of EnabledTricks and EnabledGlitches
 } // namespace SohGui
+
+// randomizer.cpp (#982): the Generate button's read of the exclude and trick CVars.
+void Rando_ReadMenuExcludesAndTricks(std::set<RandomizerCheck>& excludedLocations,
+                                     std::set<RandomizerTrick>& enabledTricks);
 
 // Menu.cpp: pure helper filtering Audio API combobox entries to available backends.
 namespace Ship {
@@ -147,6 +160,163 @@ void CheckExcludedLocationsRoundTrip() {
         printf("[TEST] oot-menu-robustness: the parse threw on empty fields (%s)\n", e.what());
     }
     MR_CHECK(emptyFieldsParsed, "an excluded list with empty fields must parse to the same set without throwing");
+}
+
+struct SavedStringCVar {
+    const char* key;
+    bool existed;
+    std::string value;
+
+    void Save(const char* cvarKey) {
+        key = cvarKey;
+        existed = CVarExists(cvarKey);
+        const char* current = CVarGetString(cvarKey, "");
+        value = current != nullptr ? current : "";
+    }
+
+    void Restore() const {
+        if (existed) {
+            CVarSetString(key, value.c_str());
+        } else {
+            CVarClear(key);
+        }
+    }
+};
+
+// RandoIdList_ParseField on one NUL-terminated field: the id, -1000 when rejected,
+// -2000 when a rejection wrote the output anyway.
+int32_t MrParseField(const char* field, int32_t minId, int32_t maxIdExclusive) {
+    int32_t out = -1000;
+    const int ok = RandoIdList_ParseField(field, std::string(field).size(), minId, maxIdExclusive, &out);
+    if (ok == 0 && out != -1000) {
+        return -2000;
+    }
+    return ok != 0 ? out : -1000;
+}
+
+void CheckMalformedIdLists() {
+    printf("[TEST] oot-menu-robustness: leg (g) malformed excluded-location and trick lists (#1819)\n");
+
+    // (g1) The strict field parser, with the bounds both readers use.
+    const int32_t rcMin = RC_UNKNOWN_CHECK + 1;
+    const int32_t rcMax = RC_MAX;
+    const std::string rcLast = std::to_string(RC_MAX - 1);
+    const std::string rcEnd = std::to_string(RC_MAX);
+    const std::string rtLast = std::to_string(RT_MAX - 1);
+    const std::string rtEnd = std::to_string(RT_MAX);
+    MR_CHECK(MrParseField("", rcMin, rcMax) == -1000, "an empty field is rejected");
+    MR_CHECK(MrParseField("   ", rcMin, rcMax) == -1000, "a field of spaces is rejected");
+    MR_CHECK(MrParseField("abc", rcMin, rcMax) == -1000, "a word is rejected");
+    MR_CHECK(MrParseField("1a", 0, 1000000) == -1000, "a letter is rejected even where its code would be in range");
+    MR_CHECK(MrParseField("99999999999", rcMin, rcMax) == -1000, "a number beyond int range is rejected");
+    MR_CHECK(MrParseField("4294967297", rcMin, rcMax) == -1000, "a number that wraps a 32-bit int is rejected");
+    MR_CHECK(MrParseField("-3", rcMin, rcMax) == -1000, "a negative id is rejected");
+    MR_CHECK(MrParseField("+12", rcMin, rcMax) == -1000, "a signed id is rejected");
+    MR_CHECK(MrParseField("12abc", rcMin, rcMax) == -1000, "trailing garbage is rejected (std::stoi read 12)");
+    MR_CHECK(MrParseField("1 2", rcMin, rcMax) == -1000, "a space inside the digits is rejected");
+    MR_CHECK(MrParseField(" 12", rcMin, rcMax) == 12, "a leading space is tolerated, as std::stoi did");
+    MR_CHECK(MrParseField("12 ", rcMin, rcMax) == 12, "a trailing space is tolerated, as std::stoi did");
+    MR_CHECK(MrParseField("\t12\t", rcMin, rcMax) == 12, "surrounding tabs are tolerated");
+    MR_CHECK(MrParseField("007", rcMin, rcMax) == 7, "leading zeros read as std::stoi read them");
+    MR_CHECK(MrParseField("0", rcMin, rcMax) == -1000, "RC_UNKNOWN_CHECK is not an excludable check");
+    MR_CHECK(MrParseField("1", rcMin, rcMax) == RC_LINKS_POCKET, "the lowest real check id is accepted");
+    MR_CHECK(MrParseField(rcLast.c_str(), rcMin, rcMax) == RC_MAX - 1, "the highest check id is accepted");
+    MR_CHECK(MrParseField(rcEnd.c_str(), rcMin, rcMax) == -1000, "RC_MAX itself is rejected");
+    MR_CHECK(MrParseField("0", 0, RT_MAX) == RT_VISIBLE_COLLISION, "trick id 0 is a real trick and is accepted");
+    MR_CHECK(MrParseField(rtLast.c_str(), 0, RT_MAX) == RT_MAX - 1, "the highest trick id is accepted");
+    MR_CHECK(MrParseField(rtEnd.c_str(), 0, RT_MAX) == -1000, "RT_MAX itself is rejected");
+    int32_t sliced = -1;
+    MR_CHECK(RandoIdList_ParseField("123,456", 3, 0, 1000, &sliced) == 1 && sliced == 123,
+             "the parser reads only the field's own length");
+
+    // (g2) The Locations page's reader keeps the good ids around bad fields and does not throw.
+    const std::set<RandomizerCheck> good = { RC_DEKU_TREE_SLINGSHOT_CHEST, RC_DODONGOS_CAVERN_BOSS_ROOM_CHEST };
+    const std::string goodA = std::to_string(RC_DEKU_TREE_SLINGSHOT_CHEST);
+    const std::string goodB = std::to_string(RC_DODONGOS_CAVERN_BOSS_ROOM_CHEST);
+    const std::string wellFormed = goodA + "," + goodB;
+    const std::string malformed = goodA + ",abc,,12abc,-3,99999999999,0," + rcEnd + "," + goodB + ",";
+    const std::string oneBad = goodA + ",abc," + goodB;
+    bool pageThrew = false;
+    try {
+        MR_CHECK(SohGui::ParseExcludedLocations(wellFormed.c_str()) == good, "page: a well-formed list parses whole");
+        MR_CHECK(SohGui::ParseExcludedLocations(oneBad.c_str()) == good,
+                 "page: one bad field between two good ones keeps both good ids");
+        MR_CHECK(SohGui::ParseExcludedLocations(malformed.c_str()) == good,
+                 "page: every malformed field is skipped and only the good ids remain");
+        MR_CHECK(SohGui::ParseExcludedLocations("abc").empty(), "page: a list of one word parses to the empty set");
+    } catch (const std::exception& e) {
+        pageThrew = true;
+        printf("[TEST] oot-menu-robustness: the Locations page parse threw (%s)\n", e.what());
+    }
+    MR_CHECK(!pageThrew, "page: the Locations page parse must not throw on a malformed list");
+
+    // (g3) The generation reader (shared with the golden harness), over the bring-up leg (b) made.
+    if (Rando::Context::GetInstance() == nullptr) {
+        MR_CHECK(false, "leg (g) needs the Rando::Context leg (b) brought up");
+        return;
+    }
+    SavedStringCVar savedExcludes;
+    SavedStringCVar savedTricks;
+    SavedStringCVar savedGlitches;
+    SavedIntCVar savedMQDungeons;
+    SavedIntCVar savedMQCount;
+    savedExcludes.Save(CVAR_RANDOMIZER_SETTING("ExcludedLocations"));
+    savedTricks.Save(CVAR_RANDOMIZER_SETTING("EnabledTricks"));
+    savedGlitches.Save(CVAR_RANDOMIZER_SETTING("EnabledGlitches"));
+    savedMQDungeons.Save(CVAR_RANDOMIZER_SETTING("MQDungeons"));
+    savedMQCount.Save(CVAR_RANDOMIZER_SETTING("MQDungeonCount"));
+    // Leg (b) proves both checks visible with no MQ dungeons, so the visibility filter keeps them.
+    CVarSetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), RO_MQ_DUNGEONS_NONE);
+    CVarSetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 0);
+
+    const std::set<RandomizerTrick> goodTricks = { RT_GROTTOS_WITHOUT_AGONY, RT_FEWER_TUNIC_REQUIREMENTS };
+    const std::string tricksWellFormed =
+        std::to_string(RT_GROTTOS_WITHOUT_AGONY) + "," + std::to_string(RT_FEWER_TUNIC_REQUIREMENTS);
+    const std::string tricksMalformed = "," + std::to_string(RT_GROTTOS_WITHOUT_AGONY) + ",abc,,-1,99999999999," +
+                                        rtEnd + ",2x," + std::to_string(RT_FEWER_TUNIC_REQUIREMENTS);
+    const std::string excludesMalformed = "," + malformed;
+    bool genThrew = false;
+    try {
+        std::set<RandomizerCheck> excl;
+        std::set<RandomizerTrick> tricks;
+        CVarSetString(CVAR_RANDOMIZER_SETTING("ExcludedLocations"), wellFormed.c_str());
+        CVarSetString(CVAR_RANDOMIZER_SETTING("EnabledTricks"), tricksWellFormed.c_str());
+        Rando_ReadMenuExcludesAndTricks(excl, tricks);
+        MR_CHECK(excl == good, "generation: a well-formed exclude list reads whole");
+        MR_CHECK(tricks == goodTricks, "generation: a well-formed trick list reads whole");
+
+        excl.clear();
+        tricks.clear();
+        CVarSetString(CVAR_RANDOMIZER_SETTING("ExcludedLocations"), excludesMalformed.c_str());
+        CVarSetString(CVAR_RANDOMIZER_SETTING("EnabledTricks"), tricksMalformed.c_str());
+        Rando_ReadMenuExcludesAndTricks(excl, tricks);
+        MR_CHECK(excl == good, "generation: malformed exclude fields are skipped, the good ids kept");
+        MR_CHECK(tricks == goodTricks, "generation: malformed trick fields are skipped, the good ids kept");
+    } catch (const std::exception& e) {
+        genThrew = true;
+        printf("[TEST] oot-menu-robustness: Rando_ReadMenuExcludesAndTricks threw (%s)\n", e.what());
+    }
+    MR_CHECK(!genThrew, "generation: the exclude and trick read must not throw on a malformed list");
+
+    // (g4) The Tricks page's reader (EnabledTricks and EnabledGlitches) does not throw.
+    bool tricksPageThrew = false;
+    try {
+        CVarSetString(CVAR_RANDOMIZER_SETTING("EnabledTricks"), tricksMalformed.c_str());
+        CVarSetString(CVAR_RANDOMIZER_SETTING("EnabledGlitches"), tricksMalformed.c_str());
+        SohGui::UpdateMenuTricks();
+    } catch (const std::exception& e) {
+        tricksPageThrew = true;
+        printf("[TEST] oot-menu-robustness: the Tricks page parse threw (%s)\n", e.what());
+    }
+    MR_CHECK(!tricksPageThrew, "tricks page: the Tricks page parse must not throw on a malformed list");
+
+    savedExcludes.Restore();
+    savedTricks.Restore();
+    savedGlitches.Restore();
+    savedMQDungeons.Restore();
+    savedMQCount.Restore();
+    SohGui::UpdateMenuTricks();
+    RandomizerCheckObjects::UpdateImGuiVisibility();
 }
 
 void CheckMQLocationsVisibility() {
@@ -424,6 +594,7 @@ extern "C" int OoT_MenuRobustness_RunHeadless(const char* sourceDir) {
     sFailures = 0;
     CheckExcludedLocationsRoundTrip();
     CheckMQLocationsVisibility();
+    CheckMalformedIdLists();
     CheckAudioBackendFiltering();
     CheckSliderVisibleLabels();
     CheckCheckboxLabelWrap();
