@@ -3741,6 +3741,19 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1748: SoH 29948f27a const-reference JSON spoiler parsers (missing optional
+    # sections read as empty without throwing; missing "seed" throws) and SoH
+    # 18f8770ea item tracker section gating (Greg, Jabber Nuts, Fishing Pole).
+    # Same TrackerReachabilityBringUp as OoTLogicGates: rando tier.
+    # games/oot/soh/oot_tracker_spoiler_json_test.cpp.
+    redship_add_test(NAME OoTSpoilerJsonSections COMMAND redship --test oot-spoiler-json-sections
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME OoTItemTrackerGatedSections COMMAND redship --test oot-item-tracker-gated-sections
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME MMLogicGates COMMAND redship --test mm-logic-gates
         LABEL rando
         TIMEOUT 300

@@ -3668,10 +3668,10 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
     }
 }
 
-void Settings::ParseJson(nlohmann::json spoilerFileJson) {
-    mContext->SetSeedString(spoilerFileJson["seed"].get<std::string>());
-    mContext->SetSeed(spoilerFileJson["finalSeed"].get<uint32_t>());
-    nlohmann::json settingsJson = spoilerFileJson["settings"];
+void Settings::ParseJson(const nlohmann::json& spoilerFileJson) {
+    mContext->SetSeedString(spoilerFileJson.at("seed").get<std::string>());
+    mContext->SetSeed(spoilerFileJson.at("finalSeed").get<uint32_t>());
+    nlohmann::json settingsJson = spoilerFileJson.value("settings", nlohmann::json());
     for (auto it = settingsJson.begin(); it != settingsJson.end(); ++it) {
         // todo load into cvars for UI
         // RANDOTODO handle numeric value to options conversion better than brute froce
@@ -3681,9 +3681,9 @@ void Settings::ParseJson(nlohmann::json spoilerFileJson) {
         }
     }
 
-    ParseExcludedLocationsJson(spoilerFileJson["excludedLocations"]);
+    ParseExcludedLocationsJson(spoilerFileJson.value("excludedLocations", nlohmann::json()));
 
-    ParseEnabledTricksJson(spoilerFileJson["enabledTricks"]);
+    ParseEnabledTricksJson(spoilerFileJson.value("enabledTricks", nlohmann::json()));
 }
 
 // RSBS (#1731): a spoiler log lists its excluded checks by location name. The loop used to read

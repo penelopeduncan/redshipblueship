@@ -198,6 +198,7 @@ games/oot/soh/oot_mask_shop_night_door_test.cpp
 games/oot/soh/oot_dark_link_fixes_test.cpp
 games/oot/soh/oot_camera_targeting_options_test.cpp
 games/oot/soh/oot_upstream_small_fixes_test.cpp
+games/oot/soh/oot_tracker_spoiler_json_test.cpp
 games/oot/soh/oot_two_handed_idle_test.cpp
 games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp
 games/oot/soh/oot_room_bg_cam_guard_test.cpp

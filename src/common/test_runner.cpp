@@ -10330,12 +10330,29 @@ TestResult Test_TrackerOoTPanelList(void) {
 // reachability crawl). Same bring-up as the rows above; bodies in
 // games/oot/soh/oot_logic_gates_test.cpp and games/mm/2s2h/mm_logic_gates_test.cpp.
 extern "C" int OoT_LogicGates_RunHeadless(void);
+extern "C" int OoT_SpoilerJsonSections_RunHeadless(void);
+extern "C" int OoT_ItemTrackerGatedSections_RunHeadless(void);
 extern "C" int MM_LogicGates_RunHeadless(void);
 TestResult Test_OoTLogicGates(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
     }
     return OoT_LogicGates_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1748: SoH 29948f27a const-reference spoiler JSON parsers and SoH 18f8770ea
+// item tracker section gating. Same bring-up as Test_OoTLogicGates; bodies in
+// games/oot/soh/oot_tracker_spoiler_json_test.cpp.
+TestResult Test_OoTSpoilerJsonSections(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_SpoilerJsonSections_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+TestResult Test_OoTItemTrackerGatedSections(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ItemTrackerGatedSections_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 TestResult Test_MMLogicGates(void) {
     if (!TrackerReachabilityBringUp()) {
@@ -12382,6 +12399,14 @@ const TestDescriptor gTests[] = {
       "Song from Malon and the Thieves' Hideout carpenters need the Hylian jabber nut, Talon's chickens the Power "
       "Bracelet, and the carpet merchant both the nut and the price (#1168)",
       Test_OoTLogicGates },
+    { "oot-spoiler-json-sections",
+      "OoT spoiler JSON parsers take const references, treat missing optional sections as empty without throwing, and "
+      "throw when \"seed\" is absent (SoH 29948f27a, #1748)",
+      Test_OoTSpoilerJsonSections },
+    { "oot-item-tracker-gated-sections",
+      "OoT's retired Item Tracker UpdateVectors gates Greg on IS_RANDO, Jabber Nuts on RSK_SHUFFLE_SPEAK, and Fishing "
+      "Pole on RSK_SHUFFLE_FISHING_POLE, and hides them when keys are cleared (SoH 18f8770ea, #1748)",
+      Test_OoTItemTrackerGatedSections },
     { "mm-logic-gates",
       "Romani Ranch's cows, Epona's Song and the alien drop need the Milk Road boulder broken on Day 1, and the "
       "Circus Leader's Mask needs Romani's Mask (#1168)",
@@ -13427,8 +13452,11 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "mm-check-instances-per-id") == 0 ||
                 strcmp(gTests[i].name, "tracker-fill-superset") == 0 ||
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
-                strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
-                strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "oot-logic-gates") == 0 ||
+                strcmp(gTests[i].name, "oot-spoiler-json-sections") == 0 ||
+                strcmp(gTests[i].name, "oot-item-tracker-gated-sections") == 0 ||
+                strcmp(gTests[i].name, "mm-logic-gates") == 0 || strcmp(gTests[i].name, "mm-time-edges") == 0 ||
+                strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "mm-fortress-evade-gerudo") == 0 ||
                 strcmp(gTests[i].name, "oot-masks-mm-pool") == 0 ||
                 // #1569: each CTest row is its own process, so the first thing it reads is the static-init state;

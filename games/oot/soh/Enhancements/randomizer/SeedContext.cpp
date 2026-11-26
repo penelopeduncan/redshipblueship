@@ -536,8 +536,8 @@ void Context::ParseSpoiler(const char* spoilerFileName) {
     } catch (...) { LUSLOG_ERROR("Failed to load Spoiler File: %s", spoilerFileName); }
 }
 
-void Context::ParseHashIconIndexesJson(nlohmann::json spoilerFileJson) {
-    nlohmann::json hashJson = spoilerFileJson["file_hash"];
+void Context::ParseHashIconIndexesJson(const nlohmann::json& spoilerFileJson) {
+    nlohmann::json hashJson = spoilerFileJson.value("file_hash", nlohmann::json());
     int index = 0;
     for (auto it = hashJson.begin(); it != hashJson.end(); ++it) {
         hashIconIndexes[index] = gSeedTextures[it.value()].id;
@@ -558,8 +558,8 @@ static RandomizerGet SeedContextSpoilerItemOrThrow(const std::string& location, 
     return rg;
 }
 
-void Context::ParseItemLocationsJson(nlohmann::json spoilerFileJson) {
-    nlohmann::json locationsJson = spoilerFileJson["locations"];
+void Context::ParseItemLocationsJson(const nlohmann::json& spoilerFileJson) {
+    nlohmann::json locationsJson = spoilerFileJson.value("locations", nlohmann::json());
     for (auto it = locationsJson.begin(); it != locationsJson.end(); ++it) {
         // RSBS (#1731): an unknown location name used to become RC_UNKNOWN_CHECK (the file's item went there and the
         // real check kept what it held before); it fails the load instead.
@@ -593,19 +593,9 @@ void Context::WriteHintJson(nlohmann::ordered_json& spoilerFileJson) {
     }
 }
 
-nlohmann::json getValueForMessage(std::unordered_map<std::string, nlohmann::json> map, CustomMessage message) {
-    std::vector<std::string> strings = message.GetAllMessages();
-    for (uint8_t language = 0; language < LANGUAGE_MAX; language++) {
-        if (map.contains(strings[language])) {
-            return strings[language];
-        }
-    }
-    return {};
-}
-
-void Context::ParseHintJson(nlohmann::json spoilerFileJson) {
-    ParseHintSectionJson(spoilerFileJson["Gossip Stone Hints"]);
-    ParseHintSectionJson(spoilerFileJson["Static Hints"]);
+void Context::ParseHintJson(const nlohmann::json& spoilerFileJson) {
+    ParseHintSectionJson(spoilerFileJson.value("Gossip Stone Hints", nlohmann::json()));
+    ParseHintSectionJson(spoilerFileJson.value("Static Hints", nlohmann::json()));
     CreateStaticHints();
 }
 
@@ -631,8 +621,8 @@ void Context::ParseHintSectionJson(const nlohmann::json& hintsJson) {
     }
 }
 
-void Context::ParseTricksJson(nlohmann::json spoilerFileJson) {
-    nlohmann::json enabledTricksJson = spoilerFileJson["enabledTricks"];
+void Context::ParseTricksJson(const nlohmann::json& spoilerFileJson) {
+    nlohmann::json enabledTricksJson = spoilerFileJson.value("enabledTricks", nlohmann::json());
     const auto& settings = Rando::Settings::GetInstance();
     for (auto it : enabledTricksJson) {
         int rt = settings->GetRandomizerTrickByName(it);
