@@ -182,6 +182,22 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   cases the first autosave can come right away. Majora's Mask's autosave, which the same checkbox switches on and which
   has its own interval row below it, is unchanged. Tests check that Autosave's load hook resets the timer; no run loads
   a file or waits out an interval.
+- **Fix Out of Bounds Textures: Ocarina of Time follows a preset too** (issue #1817). Fix Out of Bounds Textures
+  (Enhancements > Fixes, one row for both games, off by default) chooses in Ocarina of Time how arrow tips, child Link's
+  held Deku Stick, the Freezard and parts of the Iron Knuckle's armour are textured. When a preset or a dropped config
+  file changed the option, Ocarina of Time kept its old textures until you toggled the row while Ocarina of Time ran
+  (twice, to keep the preset's value) or restarted RedShipBlueShip. The three curated Enhancements presets turn the
+  option on, and Reset to Default turns it off. Ocarina of Time now follows at once while it is the running game;
+  otherwise it catches up on its first frame after you go back to it. Clicking the row while Majora's Mask ran used to
+  patch a second copy of Ocarina of Time's models kept for Majora's Mask, which nothing draws, and left the copy Ocarina
+  of Time uses unchanged. That click now changes Majora's Mask at once and Ocarina of Time when it next runs. Tests
+  drive the bookkeeping with the texture patches themselves skipped; nobody has looked at the textures.
+- **Majora's Mask: turning Debug Mode off also switches Disable Object Dependency off** (issue #1817). Turning Debug
+  Mode off (Dev Tools > General) clears Disable Object Dependency and greys its row out, but Majora's Mask kept letting
+  an actor spawn even when its object was not loaded, as if the option were still on, until you restarted
+  RedShipBlueShip or turned Debug Mode on again and ticked and unticked the row. The option is now switched off in the
+  game as soon as Debug Mode goes off. In normal play every actor's object is loaded, so this only shows when you spawn
+  actors yourself.
 
 ### Build and tests
 
