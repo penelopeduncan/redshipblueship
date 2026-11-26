@@ -6,16 +6,21 @@
  *        src/common's combo_hint_view.h. See Rando/HintSources.h.
  *
  * ONE IMPLEMENTATION. Each fixed-location hint's textbox hook (EnTalk, DmStk,
- * EnZow, EnKgy, EnSsh, EnElfgrp, EnGirlA) builds its message with FixedText
- * below over MM's live save, and the combined tracker's resolver calls the same
- * FixedText over whichever MM save it reads (the live one while MM is played,
- * the frozen MM half otherwise). The texts are upstream's, moved here verbatim
- * (each hook keeps upstream's own expression under its #else); the item-location
- * hints fill their location through Rando::HintArea::ReplaceItemLocation's
- * table-taking form, which the live form now calls too. One name differs on
- * purpose: MM's own junk padding in the Bomb Shop's line, which the textbox
- * suffixes with a junk item drawn from MM's global stream and the resolver does
- * not (HintSources.h, JunkName).
+ * EnZow, EnKgy, EnSsh, EnElfgrp, EnGirlA, EnTimeTag, BankSignHint) builds its
+ * message with FixedText below over MM's live save, and the combined tracker's
+ * resolver calls the same FixedText over whichever MM save it reads (the live
+ * one while MM is played, the frozen MM half otherwise). The texts are
+ * upstream's, moved here verbatim (each hook keeps upstream's own expression
+ * under its #else), with two exceptions, the #1754 hooks, whose #else branches
+ * are this tree's forms: the engraving's fills an area through
+ * RANDO_HINT_PREPOS and ReplaceItemLocation, and the bank sign's calls this
+ * tree's GetItemName(item, true), where upstream also passes the check id. The
+ * item-location hints fill their location through
+ * Rando::HintArea::ReplaceItemLocation's table-taking form, which the live form
+ * now calls too. One name differs on purpose: MM's own junk padding in the Bomb
+ * Shop's line and the bank sign's, which the textbox suffixes with a junk item
+ * drawn from MM's global stream and the resolver does not (HintSources.h,
+ * JunkName).
  *
  * WHERE A SOURCE IS LISTED (the pane groups by it). A gossip stone: its scene's
  * area (Rando::HintArea::SceneArea; the gossip grottos are Termina Field's). A
@@ -35,6 +40,8 @@
 #include <cstring>
 #include <string>
 #include <vector>
+
+#include <libultraship/bridge/consolevariablebridge.h>
 
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/ShipUtils.h"
@@ -158,6 +165,18 @@ const MmFixedSource kMmFixedSources[] = {
       { RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM, RC_UNKNOWN },
       RO_MAX,
       COMBO_AREA_NONE },
+    { RSBS_MM_HINT_SRC_SONG_OF_SOARING,
+      "Engraving (Song of Soaring)",
+      RI_SONG_SOARING,
+      { RC_UNKNOWN, RC_UNKNOWN },
+      RO_HINTS_SONG_OF_SOARING,
+      COMBO_AREA_MM_SOUTHERN_SWAMP },
+    { RSBS_MM_HINT_SRC_BANK_REWARD,
+      "Bank Sign (Bank Reward)",
+      RI_UNKNOWN,
+      { RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART, RC_UNKNOWN },
+      RO_HINTS_BANK_SIGN,
+      COMBO_AREA_NONE },
 };
 
 static_assert(sizeof(kMmFixedSources) / sizeof(kMmFixedSources[0]) ==
@@ -272,6 +291,19 @@ std::string BombShopItemPhrase(const RandoSaveCheck* checks, Rando::HintSources:
     return Rando::ActorBehavior::ShopOfferedItemName(rc, nativeName, true);
 }
 
+/** The Bank Sign line's item phrase (text 0x1C14). Same as BombShopItemPhrase
+ *  without its #1499 UncollectedNamedItem term: PlainItemName for RI_JUNK under
+ *  JunkName::Plain, else GetItemName, both through ShopOfferedItemName so a
+ *  crossed OoT item is named instead of its RI_JUNK cover. */
+std::string BankItemPhrase(const RandoSaveCheck* checks, Rando::HintSources::JunkName junkName) {
+    const RandoCheckId rc = RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART;
+    const RandoItemId item = checks[rc].randoItemId;
+    const std::string nativeName = (junkName == Rando::HintSources::JunkName::Plain && item == RI_JUNK)
+                                       ? PlainItemName(item)
+                                       : Rando::StaticData::GetItemName(item);
+    return Rando::ActorBehavior::ShopOfferedItemName(rc, nativeName, true);
+}
+
 /** A remains poster's boss line, padded as upstream pads it. */
 const char* RemainsBoss(uint16_t source) {
     switch (source) {
@@ -286,9 +318,10 @@ const char* RemainsBoss(uint16_t source) {
     }
 }
 
-/** Upstream's message for fixed source `source` over `checks` (the hook's own
- *  text, moved here; each hook's #else keeps upstream's expression). `junkName`
- *  matters to the Bomb Shop's line only (BombShopItemPhrase). */
+/** The message for fixed source `source` over `checks` (the hook's own text,
+ *  moved here; the file header says which are upstream's verbatim). `junkName`
+ *  matters to the Bomb Shop's line and the bank sign's only (BombShopItemPhrase,
+ *  BankItemPhrase). */
 std::string BuildFixedText(const MmFixedSource& row, const RandoSaveCheck* checks,
                            Rando::HintSources::JunkName junkName) {
     std::string msg;
@@ -363,6 +396,27 @@ std::string BuildFixedText(const MmFixedSource& row, const RandoSaveCheck* check
                 "If nothing devastating happens to Mommy tonight, we should be able to sell %r{{itemName}}%w.\x19\xA8";
             const std::string itemName = BombShopItemPhrase(checks, junkName);
             CustomMessage::Replace(&msg, "{{itemName}}", itemName);
+            break;
+        }
+        case RSBS_MM_HINT_SRC_SONG_OF_SOARING:
+            // EnTimeTag.cpp, text 0xC02.
+            msg = "A note is carved into the stone...\x10What you seek lies " RANDO_HINT_PREPOS(
+                "in") " %y{{location}}%w.";
+            Rando::HintArea::ReplaceItemLocation(checks, &msg, "{{location}}", RI_SONG_SOARING);
+            break;
+        case RSBS_MM_HINT_SRC_BANK_REWARD: {
+            // BankSignHint.cpp, text 0x1C14.
+            const bool useCustomThresholds =
+                CVarGetInteger("gEnhancements.DifficultyOptions.LowerBankRewardThresholds", 0) != 0;
+            const std::string threshold = useCustomThresholds ? "1000" : "5000";
+            msg = "%gSpecial Promotion!%w\n"
+                  "Deposit %r" +
+                  threshold +
+                  " Rupees%w in your account and "
+                  "receive %g{{item}}%w!\n"
+                  "-Clock Town Bank";
+            const std::string itemName = BankItemPhrase(checks, junkName);
+            CustomMessage::Replace(&msg, "{{item}}", itemName);
             break;
         }
         default:
@@ -510,7 +564,9 @@ std::string Rando::HintSources::FixedText(uint16_t source, const RandoSaveCheck*
         }
         for (const RandoCheckId check : row->checks) {
             if (check != RC_UNKNOWN) {
-                AddCheckItem(out, checks, check, row->source == RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK);
+                AddCheckItem(out, checks, check,
+                             row->source == RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK ||
+                                 row->source == RSBS_MM_HINT_SRC_BANK_REWARD);
             }
         }
         (void)Combo_HintResolutionSetText(out, msg.c_str());
@@ -662,6 +718,8 @@ extern "C" void MM_HintSources_TestAuthorSave(void* image, uint32_t finalSeed, i
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_OATH_TO_ORDER] = on;
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_HOOKSHOT] = on;
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_SPIDER_HOUSES] = on;
+    save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_SONG_OF_SOARING] = on;
+    save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_BANK_SIGN] = on;
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_PURCHASEABLE] = 0;
 }
 
@@ -777,7 +835,13 @@ extern "C" void MM_HintSources_TestStreamReplica(uint64_t seed, int32_t max, int
  * live ReplaceItemLocation), copied from each hook's #else. The rows hold the
  * hook's text (FixedText, JunkName::Textbox) to it, so the move changed no byte,
  * and the resolver's to it but for the one junk suffix (HintSources.h). Draws as
- * the hook drew. Returns the full length, or -1 for a source that is not fixed.
+ * the hook drew. The two #1754 cases (the Song of Soaring engraving and the bank
+ * sign) had no hook on main. The engraving's case equals EnTimeTag.cpp's #else;
+ * the bank sign's adds ShopOfferedItemName to its #else's GetItemName(item,
+ * true). Both are this tree's forms, not upstream's (file header), so their
+ * parity with the hook proves the live form and the table form agree, not byte
+ * parity with upstream. Returns the full length, or -1 for a source that is not
+ * fixed.
  */
 extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, int cap) {
     if (out == nullptr || cap <= 0 || FixedSourceOf(source) == nullptr) {
@@ -883,6 +947,27 @@ extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, in
             const std::string itemName =
                 Rando::ActorBehavior::ShopOfferedItemName(stockCheck, Rando::StaticData::GetItemName(named), true);
             CustomMessage::Replace(&msg, "{{itemName}}", itemName);
+            break;
+        }
+        case RSBS_MM_HINT_SRC_SONG_OF_SOARING:
+            msg = "A note is carved into the stone...\x10What you seek lies " RANDO_HINT_PREPOS(
+                "in") " %y{{location}}%w.";
+            Rando::HintArea::ReplaceItemLocation(&msg, "{{location}}", RI_SONG_SOARING);
+            break;
+        case RSBS_MM_HINT_SRC_BANK_REWARD: {
+            const bool useCustomThresholds =
+                CVarGetInteger("gEnhancements.DifficultyOptions.LowerBankRewardThresholds", 0) != 0;
+            const std::string threshold = useCustomThresholds ? "1000" : "5000";
+            msg = "%gSpecial Promotion!%w\n"
+                  "Deposit %r" +
+                  threshold +
+                  " Rupees%w in your account and "
+                  "receive %g{{item}}%w!\n"
+                  "-Clock Town Bank";
+            const RandoCheckId bankCheck = RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART;
+            const std::string itemName = Rando::ActorBehavior::ShopOfferedItemName(
+                bankCheck, Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[bankCheck].randoItemId), true);
+            CustomMessage::Replace(&msg, "{{item}}", itemName);
             break;
         }
         default:

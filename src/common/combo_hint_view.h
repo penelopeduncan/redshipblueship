@@ -15,7 +15,7 @@
  *
  *   - THE SOURCES. Every MM hint source has a stable id (RSBS_MM_HINT_SRC_*
  *     below): the 58 gossip-stone placements in EnGs.cpp's kMmGossipStones order,
- *     then MM's 16 fixed-location hints. A stone placed in two scene versions
+ *     then MM's 18 fixed-location hints. A stone placed in two scene versions
  *     (the Southern Swamp poisoned and cleared, Mountain Village in winter and
  *     spring) is a separate row of that table with its own scene id, so its own
  *     stone seed and its own hint: the two versions are two sources, keyed by
@@ -23,12 +23,14 @@
  *     (their pick is seeded by the frame counter).
  *   - THE RESOLVER. What a source says is a pure function of the world (the MM
  *     save's placement table, its final seed, the crossing store and the frozen
- *     Way of the Hero) and the source, computed by the MM TU (Rando/HintSources.h)
- *     with the very functions MM's textbox hooks call, so the pane's text is the
- *     textbox's text. It never touches MM's global random stream or MM's live
- *     save. One name differs on purpose: where the Bomb Shop's next-stock line
- *     names MM's own junk padding, the textbox says "Junk (<junk item>)" with a
- *     junk item drawn from that stream every 20 frames, and the pane says "Junk"
+ *     Way of the Hero) and the source (but for the bank sign's amount, which reads
+ *     the live LowerBankRewardThresholds enhancement CVar as its hook does),
+ *     computed by the MM TU (Rando/HintSources.h) with the very functions MM's
+ *     textbox hooks call, so the pane's text is the textbox's text. It never
+ *     touches MM's global random stream or MM's live save. One name differs on
+ *     purpose: where the Bomb Shop's next-stock line or the bank sign names MM's
+ *     own junk padding, the textbox says "Junk (<junk item>)" with a junk item
+ *     drawn from that stream every 20 frames, and the pane says "Junk"
  *     (Rando/HintSources.h, JunkName).
  *   - THE READ RECORD. One bit per source in the combo save record
  *     (ComboContext.mmHintsRead, ADR 0009 claim 20), set by MM's read hook when a
@@ -93,7 +95,11 @@ enum {
     RSBS_MM_HINT_SRC_FAIRY_IKANA = 72,
     // The Bomb Shop's "we should be able to sell" line (EnGirlA.cpp, 0x648).
     RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK = 73,
-    RSBS_MM_HINT_SRC_COUNT = 74
+    // The Southern Swamp Song of Soaring engraving (EnTimeTag.cpp, 0xC02).
+    RSBS_MM_HINT_SRC_SONG_OF_SOARING = 74,
+    // The West Clock Town bank sign (BankSignHint.cpp, 0x1C14).
+    RSBS_MM_HINT_SRC_BANK_REWARD = 75,
+    RSBS_MM_HINT_SRC_COUNT = 76
 };
 
 // ============================================================================

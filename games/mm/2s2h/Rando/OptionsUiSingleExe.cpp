@@ -827,12 +827,33 @@ const OptionUi kOptionUi[] = {
       // EnSsh.cpp, OnOpenText[0x915 / 0x1130 / 0x1131]. Reads the placed item
       // off RANDO_SAVE_CHECKS and names it; no other hook type involved.
       COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_HINTS_SONG_OF_SOARING, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
+      "Song of Soaring Hint", "The engraved stone in Southern Swamp hints where the Song of Soaring is.",
+      0, 0, nullptr, 0,
+      // The label and tooltip follow this page's "<X> Hint" pattern, not
+      // upstream's ("Song of Soaring", 2Ship's Rando/Menu.cpp, kept as upstream).
+      // EnTimeTag.cpp, OnOpenText[0x0C02], armed from ActorBehavior::OnFileLoad.
+      // SkipLearningSongOfSoaring.cpp forces textId 0x0C02 on ACTOR_EN_TIME_TAG
+      // via OnActorInit; both hook types dispatch in single-exe.
+      COMBO_MM_LIVENESS_LIVE, "" },
     { RO_HINTS_HOOKSHOT, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
       "Hookshot Hint", "The Zora on Great Bay Coast hints where the Hookshot is.",
       0, 0, nullptr, 0,
       // EnZow.cpp, six OnOpenText ids onto one handler. The purest case in the
       // batch: OnOpenText is the TU's only hook type, so dispatch was the
       // entire question and it is answered.
+      COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_HINTS_BANK_SIGN, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
+      "Bank Reward Hint", "The sign by the West Clock Town bank names the bank's final deposit reward.",
+      0, 0, nullptr, 0,
+      // The label and tooltip follow this page's "<X> Hint" pattern, not
+      // upstream's ("Bank Reward", 2Ship's Rando/Menu.cpp, kept as upstream).
+      // The final deposit reward is the Piece of Heart check
+      // (RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART, 5000 Rupees, or 1000 with
+      // Lower Bank Reward Thresholds), whose item the sign names.
+      // BankSignHint.cpp, OnOpenText[0x1C14], armed from MiscBehavior::OnFileLoad
+      // when IS_RANDO && RANDO_SAVE_OPTIONS[RO_HINTS_BANK_SIGN]. OnOpenText
+      // dispatches in single-exe.
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_HINTS_BOSS_REMAINS, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
       "Boss Remains Hints", "The Clock Town recruitment posters hint where the Boss Remains are.",

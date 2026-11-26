@@ -1122,15 +1122,17 @@ static void DrawHintsTab() {
                             .disabledTooltip = "Soon you will be able to disable these. Currently hinted:\n- Bomb Shop "
                                                "4th Item\n- Lottery\n- Great Fairy Fountains\n- Mountain Smithy" } })
             .DefaultValue(true));
-    CVarCheckbox("Saria's Song", "gPlaceholderBool",
-                 CheckboxOptions({ { .disabled = true, .disabledTooltip = "Coming Soon" } }));
-    CVarCheckbox("Song of Soaring", "gPlaceholderBool",
-                 CheckboxOptions({ { .disabled = true, .disabledTooltip = "Coming Soon" } }));
+    CVarCheckbox(
+        "Song of Soaring", Rando::StaticData::Options[RO_HINTS_SONG_OF_SOARING].cvar,
+        CheckboxOptions({ { .tooltip = "Hints the location of the Song of Soaring at it's vanilla location" } }));
     CVarCheckbox(
         "Hookshot Location", Rando::StaticData::Options[RO_HINTS_HOOKSHOT].cvar,
         CheckboxOptions(
             { { .tooltip =
                     "The Zora in Great Bay Coast, near Pirates Fortress, will hint the location of the Hookshot." } }));
+    CVarCheckbox("Bank Reward", Rando::StaticData::Options[RO_HINTS_BANK_SIGN].cvar,
+                 CheckboxOptions({ { .tooltip = "The sign next to the Bank in West Clock Town will describe a "
+                                                "promotion for the Piece of Heart Check." } }));
     ImGui::EndChild();
 }
 

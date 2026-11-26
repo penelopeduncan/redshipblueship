@@ -14,8 +14,8 @@
  *
  * mm-hint-sources (ROM-free, redship tier):
  *   S1. THE SOURCES: the MM adapter comes up with the check tracker's MM adapter
- *       (MM_TrackerAdapter_Register), 74 sources: the 58 stone placements (EnGs.cpp's
- *       table, pinned at 58 there) and the 16 fixed hints, each named uniquely and
+ *       (MM_TrackerAdapter_Register), 76 sources: the 58 stone placements (EnGs.cpp's
+ *       table, pinned at 58 there) and the 18 fixed hints, each named uniquely and
  *       listed under a real MM area; the two scene versions of one stone (the
  *       Southern Swamp poisoned and cleared, Mountain Village in winter and
  *       spring) are two sources with two stone seeds.
@@ -50,8 +50,10 @@
  *       every textbox hook builds its text with the resolver's function and calls
  *       the read hook (the Bomb Shop's with main's junk naming, the resolver with
  *       the plain one), the stone's pick and text go through the resolver's
- *       functions, the free-stone digest goes through the resolver, and the hint
- *       adapter is registered by MM_TrackerAdapter_Register, which
+ *       functions, the free-stone digest goes through the resolver, the #1754
+ *       engraving and bank sign hooks are armed from their OnFileLoad
+ *       (ActorBehavior's and MiscBehavior's), and the hint adapter is
+ *       registered by MM_TrackerAdapter_Register, which
  *       Combo_TrackerWindow_Init calls (main.cpp calls that; locked by
  *       mm-creation-new-file's entry-point scan).
  *
@@ -264,7 +266,7 @@ bool HsCheckSources() {
             printf("[TEST]   S1: source %u \"%s\" under %s\n", (unsigned)s, info.name, Combo_Area_Name(info.area));
         }
     }
-    HS_CHECK(stoneRows == 58 && fixedRows == 16, "S1: %d stones and %d fixed hints, want 58 and 16", stoneRows,
+    HS_CHECK(stoneRows == 58 && fixedRows == 18, "S1: %d stones and %d fixed hints, want 58 and 18", stoneRows,
              fixedRows);
     ComboHintSourceInfo past;
     HS_CHECK(!desc->sourceInfo(desc->sourceCount, &past), "S1: a source past the count answers");
@@ -856,6 +858,35 @@ const HsSite kHsSites[] = {
       "the resolver's fixed texts name MM's junk padding plainly" },
     { "games/mm/2s2h/Rando/ActorBehavior/EnGirlA.cpp", "COND_ID_HOOK(OnOpenText, 0x648, IS_RANDO,", "    });",
       "entry.msg = BombShopNextStockText();", "the Bomb Shop textbox shows the next-stock text" },
+    { "games/mm/2s2h/Rando/ActorBehavior/EnTimeTag.cpp", "static std::string SoaringHintText() {", "}",
+      "Rando::HintSources::MarkRead(RSBS_MM_HINT_SRC_SONG_OF_SOARING);", "the Song of Soaring's read hook" },
+    { "games/mm/2s2h/Rando/ActorBehavior/EnTimeTag.cpp", "static std::string SoaringHintText() {", "}",
+      "return Rando::HintSources::FixedText(RSBS_MM_HINT_SRC_SONG_OF_SOARING, RANDO_SAVE_CHECKS, nullptr);",
+      "the Song of Soaring's text" },
+    { "games/mm/2s2h/Rando/ActorBehavior/EnTimeTag.cpp", "COND_ID_HOOK(OnOpenText, ENGRAVING_TEXT_ID, IS_RANDO,",
+      "    });", "entry.msg = SoaringHintText();", "the Song of Soaring engraving shows the hint text" },
+    // #1754: the engraving's hook is armed only from ActorBehavior::OnFileLoad. It also
+    // makes the Southern Swamp Song of Soaring check eligible in every randomizer world,
+    // and MMHintOptions1754 calls InitEnTimeTagBehavior directly, so only this row
+    // turns red if the OnFileLoad call is dropped.
+    { "games/mm/2s2h/Rando/ActorBehavior/ActorBehavior.cpp", "void Rando::ActorBehavior::OnFileLoad() {", "}",
+      "Rando::ActorBehavior::InitEnTimeTagBehavior();",
+      "ActorBehavior::OnFileLoad arms the Song of Soaring engraving hook" },
+    { "games/mm/2s2h/Rando/MiscBehavior/BankSignHint.cpp", "static std::string BankSignHintText() {", "}",
+      "Rando::HintSources::MarkRead(RSBS_MM_HINT_SRC_BANK_REWARD);", "the bank sign's read hook" },
+    { "games/mm/2s2h/Rando/MiscBehavior/BankSignHint.cpp", "static std::string BankSignHintText() {", "}",
+      "return Rando::HintSources::FixedText(RSBS_MM_HINT_SRC_BANK_REWARD, RANDO_SAVE_CHECKS, nullptr, junk);",
+      "the bank sign's text" },
+    { "games/mm/2s2h/Rando/MiscBehavior/BankSignHint.cpp", "static std::string BankSignHintText() {", "}",
+      "const Rando::HintSources::JunkName junk = Rando::HintSources::JunkName::Textbox;",
+      "the bank sign's textbox keeps its hook's own junk naming (its drawn suffix)" },
+    { "games/mm/2s2h/Rando/MiscBehavior/BankSignHint.cpp",
+      "COND_ID_HOOK(OnOpenText, BANK_SIGN_MESSAGE_ID, shouldRegister,", "    });", "entry.msg = BankSignHintText();",
+      "the bank sign textbox shows the hint text" },
+    // #1754: the bank sign's hook is armed only from MiscBehavior::OnFileLoad;
+    // MMHintOptions1754 calls BankSignHint directly, so only this row locks the arming.
+    { "games/mm/2s2h/Rando/MiscBehavior/MiscBehavior.cpp", "void Rando::MiscBehavior::OnFileLoad() {", "}",
+      "Rando::MiscBehavior::BankSignHint();", "MiscBehavior::OnFileLoad arms the bank sign hook" },
     // The registration: the hint adapter rides the check tracker's MM adapter.
     { "games/mm/2s2h/Rando/TrackerAdapterSingleExe.cpp", "extern \"C\" void MM_TrackerAdapter_Register(void) {", "}",
       "MM_HintAdapter_Register();", "MM_TrackerAdapter_Register registers the hint adapter" },
