@@ -828,7 +828,8 @@ const OptionUi kOptionUi[] = {
       // off RANDO_SAVE_CHECKS and names it; no other hook type involved.
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_HINTS_SONG_OF_SOARING, COMBO_MM_GROUP_HINTS, COMBO_MM_WIDGET_CHECKBOX,
-      "Song of Soaring", "Hints the location of the Song of Soaring at it's vanilla location",
+      "Song of Soaring",
+      "The engraved stone in Southern Swamp, where the Song of Soaring is normally learned, hints where the song is.",
       0, 0, nullptr, 0,
       // EnTimeTag.cpp, OnOpenText[0x0C02], armed from ActorBehavior::OnFileLoad.
       // SkipLearningSongOfSoaring.cpp forces textId 0x0C02 on ACTOR_EN_TIME_TAG
